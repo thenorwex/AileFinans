@@ -1,0 +1,18 @@
+# Xcode
+.DS_Store
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Secrets
+.env
+Secrets.swift

@@ -1,0 +1,21 @@
+# AileFinans Yol Haritası
+
+- [x] GitHub kaynak yapısı
+- [x] SwiftUI temel ekranlar
+- [x] SwiftData modelleri
+- [ ] Xcode projesi
+- [ ] Harcama/gelir
+- [ ] Hesaplar/kartlar
+- [ ] Transferler
+- [ ] Çoklu para birimi
+- [ ] Araç + kilometre + yakıt + bakım
+- [ ] Faturalar
+- [ ] Sağlık
+- [ ] Borç/alacak
+- [ ] Yatırım portföyü
+- [ ] Ücretsiz yatırım veri kaynağı ve otomatik fiyat güncelleme
+- [ ] Fotoğraf/fiş
+- [ ] Bildirimler
+- [ ] Face ID
+- [ ] iCloud/CloudKit
+- [ ] TestFlight
