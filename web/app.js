@@ -8,8 +8,8 @@ function uid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now()
 function money(n,c="TRY"){return new Intl.NumberFormat("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(n)||0)+" "+c}
 function today(){return new Date().toISOString().slice(0,10)}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.remove("show"),1800)}
-function openModal(id){$(id).classList.add("open")}
-function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open","show","active");m.style.display="none";setTimeout(()=>{m.style.display=""},0)}
+function openModal(id){const m=$(id);if(!m)return;m.hidden=false;m.setAttribute("aria-hidden","false");m.style.display="";m.classList.add("open")}
+function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open","show","active");m.setAttribute("aria-hidden","true");m.hidden=true;m.style.display="none"}
 function save(){localStorage.setItem(KEY,JSON.stringify(db));render()}
 function normalizeAccount(a){
   return {id:a.id||uid(),name:String(a.name||"").trim(),type:a.type||"Diğer",balance:Number(a.balance)||0,currency:a.currency||"TRY"}
@@ -655,20 +655,17 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelect
     }
   },true);
 
-  // Account modal: detect successful account save and close it even if the original
-  // handler forgot. Uses the account list count/name as a post-submit signal.
+  // Account modal: hard-close after a successful form submit.
   const accountForm=document.getElementById("accountForm");
   if(accountForm){
     accountForm.addEventListener("submit",function(){
       setTimeout(function(){
-        const modal=accountForm.closest(".modal");
-        if(modal){
-          modal.classList.remove("open","show","active");
-          modal.style.display="none";
-          modal.setAttribute("aria-hidden","true");
+        const modal=document.getElementById("accountModal");
+        if(modal && !document.getElementById("accountName").value.trim()){
+          closeModal("accountModal");
         }
-      },150);
-    },true);
+      },50);
+    },false);
   }
 
   document.addEventListener("keydown",function(e){

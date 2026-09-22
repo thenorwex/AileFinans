@@ -28,3 +28,5 @@ body{padding-bottom:90px}
 .bottom-nav *{pointer-events:auto!important;touch-action:manipulation}
 .modal{z-index:100000!important}
 .modal[aria-hidden="true"]{display:none!important}
+
+.modal[hidden]{display:none!important;visibility:hidden!important;pointer-events:none!important}
