@@ -59,19 +59,19 @@
     <div class="section-head"><h2>🔔 Araç Takvimi</h2></div>
     <div id="vehicleReminderList" class="list"></div>
   </div>
-  <div class="card" id="investmentsCard">
+  <div class="card app-section" id="investmentsCard">
     <div class="section-head"><h2>📈 Yatırımlar</h2><div class="actions"><button class="small-btn" id="refreshInvestmentsBtn">↻ Güncelle</button><button class="small-btn" id="addInvestmentBtn">+ Yatırım</button></div></div>
     <div class="stats" id="investmentSummary"></div>
     <div class="debt-tabs"><button class="small-btn active" data-invest-filter="all">Tümü</button><button class="small-btn" data-invest-filter="open">Açık</button><button class="small-btn" data-invest-filter="closed">Kapalı</button></div>
     <div id="investmentList" class="list"></div>
   </div>
-  <div class="card" id="billsCard">
+  <div class="card app-section" id="billsCard">
     <div class="section-head"><h2>🧾 Faturalar</h2><button class="small-btn" id="addBillBtn">+ Fatura</button></div>
     <div class="debt-tabs"><button class="small-btn active" data-bill-filter="all">Tümü</button><button class="small-btn" data-bill-filter="unpaid">Ödenmemiş</button><button class="small-btn" data-bill-filter="paid">Ödenmiş</button></div>
     <div id="billSummary" class="stats debt-stats"></div>
     <div id="billList" class="list"></div>
   </div>
-  <div class="card" id="debtsCard">
+  <div class="card app-section" id="debtsCard">
     <div class="section-head"><h2>Borçlar & Alacaklar</h2><button class="small-btn" id="addDebtBtn">+ Kayıt</button></div>
     <div class="debt-tabs"><button class="small-btn active" data-debt-filter="all">Tümü</button><button class="small-btn" data-debt-filter="debt">Borçlarım</button><button class="small-btn" data-debt-filter="receivable">Alacaklarım</button></div>
     <div id="debtSummary" class="stats debt-stats"></div>
@@ -318,5 +318,6 @@
 
 <div id="toast"></div>
 <script src="app.js"></script>
+<div id="appNavRouter" aria-hidden="true"></div>
 </body>
 </html>

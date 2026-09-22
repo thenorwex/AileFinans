@@ -561,3 +561,117 @@ document.addEventListener('click',function(e){
   if(e.target.classList && e.target.classList.contains('modal')){closeModal(e.target.id)}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(m=>closeModal(m.id))});
+
+
+/* =========================
+   v14: deterministic navigation + modal lifecycle
+   ========================= */
+(function(){
+  const navTargets = {
+    "Ana Sayfa":"homeSection",
+    "Anasayfa":"homeSection",
+    "Harcamalar":"expensesSection",
+    "Gelir":"incomeSection",
+    "Gelirler":"incomeSection",
+    "Yatırımlar":"investmentsCard",
+    "Raporlar":"reportsSection",
+    "Daha Fazla":"moreSection"
+  };
+
+  function visibleTarget(target){
+    let el=document.getElementById(target);
+    if(el) return el;
+    // Fallback: locate sections/cards by heading text.
+    const heads=[...document.querySelectorAll("h1,h2,h3,.section-title,.card-title")];
+    const hit=heads.find(h=>h.textContent.trim().toLowerCase()===String(target).replace("Section","").toLowerCase());
+    return hit ? (hit.closest(".card,.section,section,main")||hit) : null;
+  }
+
+  function closeEveryModal(){
+    document.querySelectorAll(".modal").forEach(m=>{
+      m.classList.remove("open","show","active");
+      m.removeAttribute("open");
+      m.style.display="none";
+      m.setAttribute("aria-hidden","true");
+    });
+    document.body.classList.remove("modal-open","no-scroll");
+  }
+
+  function openTarget(target){
+    closeEveryModal();
+    let el=visibleTarget(target);
+    if(!el){
+      // Known module aliases
+      if(target==="homeSection") el=document.querySelector("main")||document.body;
+      if(target==="moreSection") el=document.querySelector(".more-section,[id*='more'],#moreMenu");
+      if(target==="expensesSection") el=document.querySelector("#expensesCard,[id*='expense']");
+      if(target==="incomeSection") el=document.querySelector("#incomeCard,[id*='income']");
+      if(target==="reportsSection") el=document.querySelector("#reportsCard,[id*='report']");
+    }
+    if(el){
+      el.classList.add("app-nav-focus");
+      el.scrollIntoView({behavior:"smooth",block:"start"});
+      setTimeout(()=>el.classList.remove("app-nav-focus"),800);
+      return true;
+    }
+    return false;
+  }
+
+  // Capture phase runs before old bubbling handlers, so old handlers cannot break navigation.
+  document.addEventListener("click",function(e){
+    const btn=e.target.closest("[data-app-nav]");
+    if(btn){
+      e.preventDefault(); e.stopImmediatePropagation();
+      openTarget(btn.getAttribute("data-app-nav"));
+      return;
+    }
+    const nav=e.target.closest(".bottom-nav button,.bottom-nav a");
+    if(nav){
+      const text=nav.textContent.trim();
+      const target=navTargets[text]||nav.getAttribute("data-tab")||nav.getAttribute("href");
+      if(target && target!=="#"){
+        e.preventDefault(); e.stopImmediatePropagation();
+        openTarget(target);
+      }
+    }
+  },true);
+
+  // Reliable modal close. Also fixes forms whose old save handler forgot to close.
+  document.addEventListener("click",function(e){
+    const close=e.target.closest("[data-close],.modal .x,.modal-close");
+    if(close){
+      e.preventDefault(); e.stopPropagation();
+      const modal=close.closest(".modal") || document.getElementById(close.dataset.close||"");
+      if(modal){
+        modal.classList.remove("open","show","active");
+        modal.style.display="none";
+        modal.setAttribute("aria-hidden","true");
+      }
+    }
+    if(e.target.classList && e.target.classList.contains("modal")){
+      e.target.classList.remove("open","show","active");
+      e.target.style.display="none";
+      e.target.setAttribute("aria-hidden","true");
+    }
+  },true);
+
+  // Account modal: detect successful account save and close it even if the original
+  // handler forgot. Uses the account list count/name as a post-submit signal.
+  const accountForm=document.getElementById("accountForm");
+  if(accountForm){
+    accountForm.addEventListener("submit",function(){
+      setTimeout(function(){
+        const modal=accountForm.closest(".modal");
+        if(modal){
+          modal.classList.remove("open","show","active");
+          modal.style.display="none";
+          modal.setAttribute("aria-hidden","true");
+        }
+      },150);
+    },true);
+  }
+
+  document.addEventListener("keydown",function(e){
+    if(e.key==="Escape") closeEveryModal();
+  });
+})();

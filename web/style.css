@@ -21,3 +21,10 @@ body{padding-bottom:90px}
 .tab-section{min-height:calc(100vh - 90px)}
 .bottom-nav{touch-action:manipulation;z-index:9999}
 .modal{z-index:10000}
+
+/* v14 deterministic app navigation */
+.app-nav-focus{scroll-margin-top:20px}
+.bottom-nav{z-index:99999!important;pointer-events:auto!important}
+.bottom-nav *{pointer-events:auto!important;touch-action:manipulation}
+.modal{z-index:100000!important}
+.modal[aria-hidden="true"]{display:none!important}
