@@ -1,35 +1,91 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#111827">
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
-  <title>AileFinans</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+<title>AileFinans</title>
 </head>
 <body>
-  <header class="topbar"><div><small>AileFinans</small><h1>Bu Ay</h1></div><button id="addTop">＋</button></header>
-  <main id="app">
-    <section class="hero"><span>Toplam Harcama</span><strong id="total">0,00 TL</strong><div class="hero-sub"><span>İşlem sayısı</span><b id="count">0</b></div></section>
-    <section class="cards"><div><span>Gelir</span><b>0,00 TL</b></div><div><span>Yatırım</span><b>0,00 TL</b></div></section>
-    <div class="section-title"><h2>Son Harcamalar</h2><button id="clear">Temizle</button></div>
-    <div id="list" class="list"></div>
-  </main>
-  <nav class="nav"><button class="active">⌂<span>Ana Sayfa</span></button><button>▣<span>Harcamalar</span></button><button>↗<span>Yatırımlar</span></button><button>▥<span>Raporlar</span></button><button>☰<span>Daha Fazla</span></button></nav>
-  <dialog id="expenseDialog">
-    <form method="dialog" id="expenseForm"><div class="dialog-head"><h2>Harcama Ekle</h2><button type="button" id="close">×</button></div>
-      <label>Tutar<input id="amount" inputmode="decimal" placeholder="0,00" required></label>
-      <label>Para birimi<select id="currency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label>
-      <label>Kategori<select id="category"><option>Market</option><option>Giyim</option><option>Elektronik</option><option>Ev</option><option>Restoran</option><option>Kişisel bakım</option><option>Araç</option><option>Fatura</option><option>Sağlık</option><option>Diğer</option></select></label>
-      <label>Üye<input id="member" placeholder="Sebahattin"></label>
-      <label>Ödeme yöntemi<select id="payment"><option>Nakit</option><option>Banka kartı</option><option>Kredi kartı</option><option>Havale/EFT</option></select></label>
-      <label>Mağaza / yer<input id="merchant" placeholder="Market adı"></label>
-      <label>Açıklama<textarea id="note" rows="2"></textarea></label>
-      <label>Fiş fotoğrafı<input id="photo" type="file" accept="image/*"></label>
-      <button class="save" value="default">Kaydet</button>
-    </form>
-  </dialog>
+<header class="top">
+  <div><small>AileFinans</small><h1 id="pageTitle">Ana Sayfa</h1></div>
+  <button class="icon-btn" id="quickAdd">＋</button>
+</header>
+
+<main id="app">
+  <section id="home" class="page active">
+    <div class="hero">
+      <span>Bu Ay</span>
+      <strong id="totalExpense">₺0,00</strong>
+      <small id="expenseCount">0 işlem</small>
+    </div>
+    <div class="stats">
+      <div><span>Gelir</span><b id="totalIncome">₺0,00</b></div>
+      <div><span>Yatırım</span><b>₺0,00</b></div>
+    </div>
+    <section class="card"><div class="section-head"><h2>Son Harcamalar</h2><button id="clearAll" class="text-btn">Temizle</button></div><div id="recent"></div></section>
+  </section>
+
+  <section id="expenses" class="page">
+    <div class="section-head"><h2>Harcamalar</h2><button class="primary small" id="addExpense2">＋ Ekle</button></div>
+    <div class="filters">
+      <select id="filterCategory"><option value="">Tüm kategoriler</option></select>
+      <select id="filterMember"><option value="">Tüm üyeler</option></select>
+    </div>
+    <div id="expenseList"></div>
+  </section>
+
+  <section id="investments" class="page"><div class="empty-page">📈<h2>Yatırımlar</h2><p>Portföy, alış/satış ve otomatik fiyat güncelleme burada olacak.</p></div></section>
+  <section id="reports" class="page"><div class="empty-page">📊<h2>Raporlar</h2><p>Aylık ve yıllık harcama analizleri burada olacak.</p></div></section>
+
+  <section id="more" class="page">
+    <div class="menu-grid">
+      <button data-section="members">👨‍👩‍👧‍👦<b>Üyeler</b><small>Aile üyeleri</small></button>
+      <button data-section="accounts">💳<b>Hesaplar & Kartlar</b><small>Ödeme yöntemleri</small></button>
+      <button data-section="vehicles">🚗<b>Araçlar</b><small>Km, yakıt, bakım</small></button>
+      <button data-section="bills">💡<b>Faturalar</b><small>Son ödeme tarihleri</small></button>
+      <button data-section="debts">🤝<b>Borçlar</b><small>Alacak / borç</small></button>
+      <button data-section="health">🏥<b>Sağlık</b><small>Sağlık harcamaları</small></button>
+    </div>
+  </section>
+
+  <section id="members" class="page subpage"><div class="section-head"><h2>Üyeler</h2><button class="primary small" id="addMember">＋ Üye</button></div><div id="memberList"></div></section>
+  <section id="accounts" class="page subpage"><div class="section-head"><h2>Hesaplar & Kartlar</h2><button class="primary small" id="addAccount">＋ Ekle</button></div><div id="accountList"></div></section>
+  <section id="vehicles" class="page subpage"><div class="empty-page">🚗<h2>Araçlar</h2><p>Bir sonraki modülde kilometre, yakıt ve bakım takibini ekleyeceğiz.</p></div></section>
+  <section id="bills" class="page subpage"><div class="empty-page">💡<h2>Faturalar</h2><p>Tekrarlayan faturalar ve bildirimler sonraki modülde.</p></div></section>
+  <section id="debts" class="page subpage"><div class="empty-page">🤝<h2>Borçlar</h2><p>Borç ve alacak sistemi sonraki modülde.</p></div></section>
+  <section id="health" class="page subpage"><div class="empty-page">🏥<h2>Sağlık</h2><p>Sağlık harcamaları sonraki modülde.</p></div></section>
+</main>
+
+<nav class="bottom">
+  <button data-nav="home">⌂<span>Ana Sayfa</span></button>
+  <button data-nav="expenses">▣<span>Harcamalar</span></button>
+  <button data-nav="investments">↗<span>Yatırımlar</span></button>
+  <button data-nav="reports">▥<span>Raporlar</span></button>
+  <button data-nav="more">☰<span>Daha Fazla</span></button>
+</nav>
+
+<div class="modal" id="expenseModal"><div class="modal-box">
+  <div class="modal-head"><h2>Harcama Ekle</h2><button class="close" data-close="expenseModal">×</button></div>
+  <form id="expenseForm">
+    <label>Tutar<input id="amount" type="number" step="0.01" min="0" required></label>
+    <label>Para Birimi<select id="currency"><option>TRY ₺</option><option>USD $</option><option>EUR €</option><option>GBP £</option></select></label>
+    <label>Kategori<select id="category"></select></label>
+    <label>Alt Kategori<input id="subcategory" placeholder="Örn. Gıda"></label>
+    <label>Kim yaptı?<select id="member"></select></label>
+    <label>Ödeme yöntemi<select id="payment"></select></label>
+    <label>Tarih<input id="date" type="date" required></label>
+    <label>Mağaza<input id="merchant" placeholder="Örn. Migros"></label>
+    <label>Açıklama<textarea id="note" rows="2"></textarea></label>
+    <label>Fiş / Fotoğraf<input id="photo" type="file" accept="image/*" capture="environment"></label>
+    <img id="preview" class="preview hidden">
+    <button class="primary" type="submit">Kaydet</button>
+  </form>
+</div></div>
+
+<div class="modal" id="simpleModal"><div class="modal-box"><div class="modal-head"><h2 id="simpleTitle"></h2><button class="close" data-close="simpleModal">×</button></div><form id="simpleForm"></form></div></div>
 <script src="app.js"></script>
 </body>
 </html>
