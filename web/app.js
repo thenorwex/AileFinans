@@ -1,5 +1,5 @@
-const KEY="ailefinans_v9";
-const VERSION_OLD_KEYS=["ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
+const KEY="ailefinans_v10";
+const VERSION_OLD_KEYS=["ailefinans_v9","ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
 const OLD_KEYS=["ailefinans_v3","ailefinans_v2"];
 const $=id=>document.getElementById(id);
 let editAccountId=null;
@@ -30,7 +30,9 @@ function load(){
     debts:Array.isArray(x.debts)?x.debts:[],
     vehicles:Array.isArray(x.vehicles)?x.vehicles:[],
     vehicleReminders:Array.isArray(x.vehicleReminders)?x.vehicleReminders:[],
-    bills:Array.isArray(x.bills)?x.bills:[]
+    bills:Array.isArray(x.bills)?x.bills:[],
+    investments:Array.isArray(x.investments)?x.investments:[],
+    investmentTransactions:Array.isArray(x.investmentTransactions)?x.investmentTransactions:[]
   };
   db.debts=db.debts.map(x=>({...x,id:x.id||uid(),type:x.type||"debt",paid:Number(x.paid)||0,payments:Array.isArray(x.payments)?x.payments:[]}));
   db.income=db.income.map(x=>({...x,id:x.id||uid(),type:"income"}));
@@ -49,6 +51,7 @@ function load(){
 let db={members:[],accounts:[],expenses:[],income:[],transfers:[],debts:[],vehicles:[]};
 let vehicleFilter=null;
 let billFilter="all";
+let investmentFilter="all";
 let debtFilter="all";
 
 function render(){
@@ -79,6 +82,16 @@ function render(){
   const debtRows=db.debts.filter(d=>debtFilter==="all"||d.type===debtFilter).slice().reverse();
   const debtTotal=debtRows.filter(d=>d.type==="debt").reduce((s,d)=>s+Math.max(0,d.amount-d.paid),0);
   const receivableTotal=debtRows.filter(d=>d.type==="receivable").reduce((s,d)=>s+Math.max(0,d.amount-d.paid),0);
+  const invs=db.investments.filter(i=>investmentFilter==="all"||(investmentFilter==="open"?i.status!=="closed":i.status==="closed"));
+  const investedCost=invs.reduce((s,i)=>s+Number(i.cost||0),0);
+  const currentValue=invs.reduce((s,i)=>s+Number(i.value||0),0);
+  const pnl=currentValue-investedCost;
+  $("investmentSummary").innerHTML=`<div class="stat"><span>Maliyet</span><strong>${money(investedCost)}</strong></div><div class="stat"><span>Güncel Değer</span><strong>${money(currentValue)}</strong></div><div class="stat"><span>Kâr / Zarar</span><strong>${money(pnl)}</strong></div>`;
+  $("investmentList").innerHTML=invs.length?invs.map(i=>{
+    const diff=Number(i.value||0)-Number(i.cost||0),pct=Number(i.cost)?(diff/i.cost*100):0;
+    return `<div class="item"><div><div class="item-title">📈 ${esc(i.name)} · ${esc(i.type)}</div><div class="item-sub">${Number(i.qty).toLocaleString("tr-TR")} ${esc(i.currency)} · ${esc(i.date)} · ${i.status==="closed"?"Kapalı":"Açık"}</div></div><div class="item-right"><div class="amount">${money(i.value,i.currency)}</div><div class="item-sub">${diff>=0?"+":""}${money(diff,i.currency)} (${pct.toFixed(2)}%)</div><div class="actions"><button class="icon-btn" data-invest-tx="${i.id}">İşlem</button><button class="icon-btn" data-edit-invest="${i.id}">Düzenle</button><button class="icon-btn danger" data-delete-invest="${i.id}">Sil</button></div></div></div>`;
+  }).join(""):`<div class="empty">Bu filtrede yatırım yok.</div>`;
+
   const bills=db.bills.filter(b=>billFilter==="all"||(billFilter==="paid"?b.paid:b.status!=="paid")).slice().sort((a,b)=>String(a.dueDate).localeCompare(String(b.dueDate)));
   const unpaid=bills.filter(b=>b.status!=="paid").reduce((s,b)=>s+Number(b.amount||0),0);
   const overdue=bills.filter(b=>b.status!=="paid"&&b.dueDate<new Date().toISOString().slice(0,10)).length;
@@ -254,6 +267,60 @@ $("vehicleList").addEventListener("click",e=>{
   if(del){const v=db.vehicles.find(x=>x.id===del.dataset.deleteVehicle);if(v&&confirm(`${v.make} ${v.model} silinsin mi?`)){db.vehicles=db.vehicles.filter(x=>x.id!==v.id);db.vehicleLogs=db.vehicleLogs.filter(x=>x.vehicleId!==v.id);save();toast("Araç silindi")}}
 });
 
+
+
+function openInvestment(){
+  $("investmentForm").reset();$("investmentId").value="";$("investmentModalTitle").textContent="Yatırım Ekle";$("investmentDate").value=today();
+  $("investmentAccount").innerHTML=db.accounts.map(a=>`<option value="${a.id}">${esc(a.name)} · ${a.currency}</option>`).join("");
+  openModal("investmentModal")
+}
+function saveInvestment(){
+  const id=$("investmentId").value,data={type:$("investmentType").value,name:$("investmentName").value.trim(),currency:$("investmentCurrency").value,qty:Number($("investmentQty").value),cost:Number($("investmentCost").value),value:Number($("investmentValue").value),date:$("investmentDate").value,accountId:$("investmentAccount").value,note:$("investmentNote").value.trim(),status:"open"};
+  if(!data.name||!data.qty||data.cost<0||data.value<0||!data.date){toast("Yatırım bilgilerini kontrol et");return}
+  if(id){const i=db.investments.find(x=>x.id===id);Object.assign(i,data);toast("Yatırım güncellendi")}
+  else{
+    data.id=uid();db.investments.push(data);
+    if(data.cost>0){
+      const a=db.accounts.find(x=>x.id===data.accountId);
+      if(a&&a.currency===data.currency){a.balance-=data.cost;db.expenses.push({id:uid(),type:"expense",amount:data.cost,currency:data.currency,category:"Yatırım · Alım",member:"",payment:a.name,date:data.date,merchant:data.name,note:data.note,investmentId:data.id})}
+    }
+    toast("Yatırım kaydedildi")
+  }
+  save();closeModal("investmentModal")
+}
+function editInvestment(id){
+  const i=db.investments.find(x=>x.id===id);if(!i)return;
+  $("investmentId").value=i.id;$("investmentType").value=i.type;$("investmentName").value=i.name;$("investmentCurrency").value=i.currency;$("investmentQty").value=i.qty;$("investmentCost").value=i.cost;$("investmentValue").value=i.value;$("investmentDate").value=i.date;$("investmentAccount").innerHTML=db.accounts.map(a=>`<option value="${a.id}">${esc(a.name)} · ${a.currency}</option>`).join("");$("investmentAccount").value=i.accountId||"";$("investmentNote").value=i.note||"";$("investmentModalTitle").textContent="Yatırım Düzenle";openModal("investmentModal")
+}
+function openInvestmentTx(id){
+  const i=db.investments.find(x=>x.id===id);if(!i)return;
+  $("transactionInvestmentId").value=id;$("investmentTransactionAmount").value="";$("investmentTransactionDate").value=today();
+  $("investmentTransactionAccount").innerHTML=db.accounts.filter(a=>a.currency===i.currency).map(a=>`<option value="${a.id}">${esc(a.name)} · ${a.currency}</option>`).join("");
+  openModal("investmentTransactionModal")
+}
+function saveInvestmentTx(){
+  const id=$("transactionInvestmentId").value,i=db.investments.find(x=>x.id===id),type=$("investmentTransactionType").value,amount=Number($("investmentTransactionAmount").value),date=$("investmentTransactionDate").value,accountId=$("investmentTransactionAccount").value;
+  if(!i||!amount||!date){toast("İşlem bilgilerini kontrol et");return}
+  const a=db.accounts.find(x=>x.id===accountId);
+  if(!a||a.currency!==i.currency){toast("Para birimini kontrol et");return}
+  if(type==="buy"){a.balance-=amount;i.cost+=amount;i.value+=amount;db.expenses.push({id:uid(),type:"expense",amount,currency:i.currency,category:"Yatırım · Alım",member:"",payment:a.name,date,merchant:i.name,note:$("investmentTransactionNote").value.trim(),investmentId:i.id})}
+  if(type==="sell"){a.balance+=amount;i.value=Math.max(0,i.value-amount);i.qty=Math.max(0,i.qty-(i.qty*(amount/(i.value+amount))));db.income.push({id:uid(),type:"income",amount,currency:i.currency,source:"Yatırım · Satış",account:a.name,date,note:`${i.name}${$("investmentTransactionNote").value.trim()?" · "+$("investmentTransactionNote").value.trim():""}`,investmentId:i.id})}
+  if(type==="update"){i.value=amount}
+  i.status=i.value===0&&type==="sell"?"closed":"open";
+  db.investmentTransactions.push({id:uid(),investmentId:i.id,type,amount,date,accountId,note:$("investmentTransactionNote").value.trim()});
+  save();closeModal("investmentTransactionModal");toast("Yatırım işlemi kaydedildi")
+}
+$("addInvestmentBtn").onclick=openInvestment;
+$("investmentsModuleBtn").onclick=()=>document.getElementById("investmentsCard").scrollIntoView({behavior:"smooth"});
+$("investmentForm").onsubmit=e=>{e.preventDefault();saveInvestment()};
+$("investmentTransactionForm").onsubmit=e=>{e.preventDefault();saveInvestmentTx()};
+document.querySelectorAll("[data-invest-filter]").forEach(b=>b.onclick=()=>{investmentFilter=b.dataset.investFilter;document.querySelectorAll("[data-invest-filter]").forEach(x=>x.classList.remove("active"));b.classList.add("active");render()});
+$("investmentList").addEventListener("click",e=>{
+  const tx=e.target.closest("[data-invest-tx]"),ed=e.target.closest("[data-edit-invest]"),del=e.target.closest("[data-delete-invest]");
+  if(tx)openInvestmentTx(tx.dataset.investTx);
+  if(ed)editInvestment(ed.dataset.editInvest);
+  if(del){const i=db.investments.find(x=>x.id===del.dataset.deleteInvest);if(i&&confirm(`${i.name} silinsin mi?`)){db.investments=db.investments.filter(x=>x.id!==i.id);db.investmentTransactions=db.investmentTransactions.filter(x=>x.investmentId!==i.id);save();toast("Yatırım silindi")}}
+});
 
 function openBill(){
   $("billForm").reset();$("billId").value="";$("billModalTitle").textContent="Fatura Ekle";openModal("billModal")

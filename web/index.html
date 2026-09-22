@@ -48,7 +48,7 @@
   <div class="card">
     <h2>Modüller</h2>
     <div class="module-grid">
-      <button id="vehiclesModuleBtn">🚗 Araçlar</button><button id="billsModuleBtn">🧾 Faturalar</button><button id="debtsModuleBtn">💳 Borçlar</button><button>❤️ Sağlık</button>
+      <button id="vehiclesModuleBtn">🚗 Araçlar</button><button id="billsModuleBtn">🧾 Faturalar</button><button id="debtsModuleBtn">💳 Borçlar</button><button id="healthModuleBtn">❤️ Sağlık</button><button id="investmentsModuleBtn">📈 Yatırımlar</button>
     </div>
   </div>
   <div class="card" id="vehiclesCard">
@@ -58,6 +58,12 @@
   <div class="card" id="vehicleRemindersCard">
     <div class="section-head"><h2>🔔 Araç Takvimi</h2></div>
     <div id="vehicleReminderList" class="list"></div>
+  </div>
+  <div class="card" id="investmentsCard">
+    <div class="section-head"><h2>📈 Yatırımlar</h2><button class="small-btn" id="addInvestmentBtn">+ Yatırım</button></div>
+    <div class="stats" id="investmentSummary"></div>
+    <div class="debt-tabs"><button class="small-btn active" data-invest-filter="all">Tümü</button><button class="small-btn" data-invest-filter="open">Açık</button><button class="small-btn" data-invest-filter="closed">Kapalı</button></div>
+    <div id="investmentList" class="list"></div>
   </div>
   <div class="card" id="billsCard">
     <div class="section-head"><h2>🧾 Faturalar</h2><button class="small-btn" id="addBillBtn">+ Fatura</button></div>
@@ -218,6 +224,40 @@
         <label>Ödeme hesabı<select id="vehiclePaymentAccount"></select></label>
       </div>
       <button class="primary-btn full" type="submit">Kaydı Kaydet</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="investmentModal">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="investmentModalTitle">Yatırım Ekle</h2><button class="x" data-close="investmentModal">×</button></div>
+    <form id="investmentForm">
+      <input type="hidden" id="investmentId">
+      <label>Yatırım türü<select id="investmentType"><option>Hisse Senedi</option><option>Kripto</option><option>Altın</option><option>Döviz</option><option>Fon</option><option>Mevduat</option><option>Diğer</option></select></label>
+      <label>Varlık adı<input id="investmentName" required placeholder="Örn. Altın, BTC, XU100 fonu"></label>
+      <label>Para birimi<select id="investmentCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+      <label>Adet / miktar<input id="investmentQty" type="number" min="0" step="0.000001" required></label>
+      <label>Toplam maliyet<input id="investmentCost" type="number" min="0" step="0.01" required></label>
+      <label>Güncel toplam değer<input id="investmentValue" type="number" min="0" step="0.01" required></label>
+      <label>Alım tarihi<input id="investmentDate" type="date" required></label>
+      <label>Yatırım hesabı<select id="investmentAccount"></select></label>
+      <label>Açıklama<input id="investmentNote"></label>
+      <button class="primary-btn full" type="submit">Yatırımı Kaydet</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="investmentTransactionModal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>Yatırım İşlemi</h2><button class="x" data-close="investmentTransactionModal">×</button></div>
+    <form id="investmentTransactionForm">
+      <input type="hidden" id="transactionInvestmentId">
+      <label>İşlem<select id="investmentTransactionType"><option value="buy">Alım</option><option value="sell">Satış</option><option value="update">Değer güncelleme</option></select></label>
+      <label>Tutar<input id="investmentTransactionAmount" type="number" min="0" step="0.01" required></label>
+      <label>Tarih<input id="investmentTransactionDate" type="date" required></label>
+      <label>Hesap<select id="investmentTransactionAccount"></select></label>
+      <label>Açıklama<input id="investmentTransactionNote"></label>
+      <button class="primary-btn full" type="submit">İşlemi Kaydet</button>
     </form>
   </div>
 </div>
