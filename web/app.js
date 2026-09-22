@@ -1,4 +1,5 @@
-const KEY="ailefinans_v4";
+const KEY="ailefinans_v5";
+const VERSION_OLD_KEYS=["ailefinans_v4","ailefinans_v3","ailefinans_v2"];
 const OLD_KEYS=["ailefinans_v3","ailefinans_v2"];
 const $=id=>document.getElementById(id);
 let editAccountId=null;
@@ -16,7 +17,7 @@ function normalizeAccount(a){
 function load(){
   let raw=localStorage.getItem(KEY);
   if(!raw){
-    for(const k of OLD_KEYS){const x=localStorage.getItem(k);if(x){raw=x;break}}
+    for(const k of VERSION_OLD_KEYS){const x=localStorage.getItem(k);if(x){raw=x;break}}
   }
   let x={};
   try{x=raw?JSON.parse(raw):{}}catch(e){}
@@ -24,8 +25,12 @@ function load(){
     members:Array.isArray(x.members)&&x.members.length?x.members:["Sebahattin","Eşim"],
     accounts:Array.isArray(x.accounts)?x.accounts.map(normalizeAccount):[],
     expenses:Array.isArray(x.expenses)?x.expenses:[],
-    income:Array.isArray(x.income)?x.income:[]
+    income:Array.isArray(x.income)?x.income:[],
+    transfers:Array.isArray(x.transfers)?x.transfers:[]
   };
+  db.income=db.income.map(x=>({...x,id:x.id||uid(),type:"income"}));
+  db.expenses=db.expenses.map(x=>({...x,id:x.id||uid(),type:"expense"}));
+  db.transfers=db.transfers.map(x=>({...x,id:x.id||uid(),type:"transfer"}));
   if(!db.accounts.length){
     db.accounts=[
       {id:uid(),name:"Nakit",type:"Nakit",balance:0,currency:"TRY"},
@@ -35,7 +40,7 @@ function load(){
   }
   localStorage.setItem(KEY,JSON.stringify(db));
 }
-let db={members:[],accounts:[],expenses:[],income:[]};
+let db={members:[],accounts:[],expenses:[],income:[],transfers:[]};
 
 function render(){
   $("accountCount").textContent=db.accounts.length;
@@ -46,7 +51,7 @@ function render(){
 
   $("accountList").innerHTML=db.accounts.length?db.accounts.map(a=>`
     <div class="item">
-      <div class="item-main"><div class="item-title">${esc(a.name)}</div><div class="item-sub">${esc(a.type)} · ${a.currency}</div></div>
+      <div class="item-main"><button class="account-open" data-detail="${a.id}"><div class="item-title">${esc(a.name)}</div><div class="item-sub">${esc(a.type)} · ${a.currency}</div></button>
       <div class="item-right"><div class="amount">${money(a.balance,a.currency)}</div>
         <div class="actions"><button class="icon-btn" data-edit="${a.id}">Düzenle</button><button class="icon-btn danger" data-delete="${a.id}">Sil</button></div>
       </div>
@@ -57,6 +62,9 @@ function render(){
   const opts=db.accounts.map(a=>`<option value="${escAttr(a.name)}">${esc(a.name)} · ${a.currency}</option>`).join("");
   $("incomeAccount").innerHTML=opts||`<option value="">Önce hesap ekle</option>`;
   $("expensePayment").innerHTML=opts||`<option value="">Önce hesap ekle</option>`;
+  const transferOpts=db.accounts.map(a=>`<option value="${a.id}">${esc(a.name)} · ${a.currency}</option>`).join("");
+  $("transferFrom").innerHTML=transferOpts;
+  $("transferTo").innerHTML=transferOpts;
   $("expenseMember").innerHTML=db.members.map(m=>`<option>${esc(m)}</option>`).join("");
 
   $("expenseList").innerHTML=db.expenses.length?db.expenses.slice().reverse().map(x=>`
@@ -107,6 +115,42 @@ $("incomeForm").onsubmit=e=>{e.preventDefault();const amount=Number($("incomeAmo
 function openExpense(){ $("expenseForm").reset();$("expenseDate").value=today();render();openModal("expenseModal") }
 $("expenseTopBtn").onclick=openExpense;$("expenseBtn2").onclick=openExpense;
 $("expenseForm").onsubmit=e=>{e.preventDefault();const amount=Number($("expenseAmount").value),currency=$("expenseCurrency").value,payment=$("expensePayment").value;if(!amount||!payment){toast("Tutar ve ödeme hesabı gerekli");return}const a=db.accounts.find(x=>x.name===payment);db.expenses.push({amount,currency,category:$("expenseCategory").value.trim(),member:$("expenseMember").value,payment,date:$("expenseDate").value,merchant:$("expenseMerchant").value.trim(),note:$("expenseNote").value.trim()});if(a&&a.currency===currency)a.balance-=amount;save();closeModal("expenseModal");toast("Harcama kaydedildi")};
+
+
+function openTransfer(){
+  if(db.accounts.length<2){toast("Transfer için en az 2 hesap gerekli");return}
+  $("transferForm").reset();$("transferDate").value=today();render();openModal("transferModal")
+}
+function saveTransfer(){
+  const from=$("transferFrom").value,to=$("transferTo").value,amount=Number($("transferAmount").value);
+  if(!from||!to||from===to||!amount||amount<=0){toast("Gönderen, alıcı ve tutarı kontrol et");return}
+  const a=db.accounts.find(x=>x.id===from),b=db.accounts.find(x=>x.id===to);
+  if(!a||!b){toast("Hesap bulunamadı");return}
+  if(a.currency!==b.currency){toast("Şimdilik farklı para birimleri arasında transfer yapılamaz");return}
+  a.balance-=amount;b.balance+=amount;
+  db.transfers.push({id:uid(),type:"transfer",from,to,amount,currency:a.currency,date:$("transferDate").value,note:$("transferNote").value.trim()});
+  save();closeModal("transferModal");toast("Transfer kaydedildi")
+}
+function openAccountDetail(id){
+  const a=db.accounts.find(x=>x.id===id);if(!a)return;
+  $("detailTitle").textContent=a.name+" · Hareketler";
+  const rows=[];
+  db.income.filter(x=>x.account===a.name).forEach(x=>rows.push({date:x.date||"",sort:x.date||"",title:x.source||"Gelir",sub:"Gelir",amount:Number(x.amount)||0}));
+  db.expenses.filter(x=>x.payment===a.name).forEach(x=>rows.push({date:x.date||"",sort:x.date||"",title:x.category||"Harcama",sub:x.merchant||"Harcama",amount:-Number(x.amount||0)}));
+  db.transfers.filter(x=>x.from===a.id||x.to===a.id).forEach(x=>{
+    const other=db.accounts.find(y=>y.id===(x.from===a.id?x.to:x.from));
+    rows.push({date:x.date||"",sort:x.date||"",title:x.from===a.id?"Transfer → "+(other?.name||"hesap"):"Transfer ← "+(other?.name||"hesap"),sub:"Transfer",amount:x.from===a.id?-Number(x.amount||0):Number(x.amount||0)});
+  });
+  rows.sort((x,y)=>String(y.sort).localeCompare(String(x.sort)));
+  $("accountDetailBody").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><div class="item-title">${esc(r.title)}</div><div class="item-sub">${esc(r.sub)} · ${esc(r.date)}</div></div><div class="amount">${r.amount>=0?"+":"-"}${money(Math.abs(r.amount),a.currency)}</div></div>`).join(""):`<div class="empty">Bu hesapta henüz hareket yok.</div>`;
+  openModal("accountDetailModal")
+}
+$("addTransferBtn").onclick=openTransfer;
+$("transferForm").onsubmit=e=>{e.preventDefault();saveTransfer()};
+$("accountList").addEventListener("click",e=>{
+  const d=e.target.closest("[data-detail]"),ed=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");
+  if(d&&!ed&&!del)openAccountDetail(d.dataset.detail);
+});
 
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
 document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));
