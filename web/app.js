@@ -1,5 +1,5 @@
-const KEY="ailefinans_v8";
-const VERSION_OLD_KEYS=["ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
+const KEY="ailefinans_v9";
+const VERSION_OLD_KEYS=["ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
 const OLD_KEYS=["ailefinans_v3","ailefinans_v2"];
 const $=id=>document.getElementById(id);
 let editAccountId=null;
@@ -29,7 +29,8 @@ function load(){
     transfers:Array.isArray(x.transfers)?x.transfers:[],
     debts:Array.isArray(x.debts)?x.debts:[],
     vehicles:Array.isArray(x.vehicles)?x.vehicles:[],
-    vehicleReminders:Array.isArray(x.vehicleReminders)?x.vehicleReminders:[]
+    vehicleReminders:Array.isArray(x.vehicleReminders)?x.vehicleReminders:[],
+    bills:Array.isArray(x.bills)?x.bills:[]
   };
   db.debts=db.debts.map(x=>({...x,id:x.id||uid(),type:x.type||"debt",paid:Number(x.paid)||0,payments:Array.isArray(x.payments)?x.payments:[]}));
   db.income=db.income.map(x=>({...x,id:x.id||uid(),type:"income"}));
@@ -47,6 +48,7 @@ function load(){
 }
 let db={members:[],accounts:[],expenses:[],income:[],transfers:[],debts:[],vehicles:[]};
 let vehicleFilter=null;
+let billFilter="all";
 let debtFilter="all";
 
 function render(){
@@ -77,6 +79,16 @@ function render(){
   const debtRows=db.debts.filter(d=>debtFilter==="all"||d.type===debtFilter).slice().reverse();
   const debtTotal=debtRows.filter(d=>d.type==="debt").reduce((s,d)=>s+Math.max(0,d.amount-d.paid),0);
   const receivableTotal=debtRows.filter(d=>d.type==="receivable").reduce((s,d)=>s+Math.max(0,d.amount-d.paid),0);
+  const bills=db.bills.filter(b=>billFilter==="all"||(billFilter==="paid"?b.paid:b.status!=="paid")).slice().sort((a,b)=>String(a.dueDate).localeCompare(String(b.dueDate)));
+  const unpaid=bills.filter(b=>b.status!=="paid").reduce((s,b)=>s+Number(b.amount||0),0);
+  const overdue=bills.filter(b=>b.status!=="paid"&&b.dueDate<new Date().toISOString().slice(0,10)).length;
+  $("billSummary").innerHTML=`<div class="stat"><span>Ödenecek</span><strong>${money(unpaid)}</strong></div><div class="stat"><span>Geciken</span><strong>${overdue}</strong></div><div class="stat"><span>Fatura</span><strong>${bills.length}</strong></div>`;
+  $("billList").innerHTML=bills.length?bills.map(b=>{
+    const days=Math.ceil((new Date(b.dueDate)-new Date())/86400000);
+    const state=b.status==="paid"?"🟢 Ödendi":days<0?"🔴 Gecikmiş":days<=7?"🟡 Yaklaşıyor":"⚪ Bekliyor";
+    return `<div class="item"><div><div class="item-title">🧾 ${esc(b.type)} · ${esc(b.provider)}</div><div class="item-sub">${state} · Son ödeme ${esc(b.dueDate)}${b.note?" · "+esc(b.note):""}</div></div><div class="item-right"><div class="amount">${money(b.amount,b.currency)}</div><div class="actions">${b.status!=="paid"?`<button class="icon-btn" data-pay-bill="${b.id}">Öde</button>`:""}<button class="icon-btn" data-edit-bill="${b.id}">Düzenle</button><button class="icon-btn danger" data-delete-bill="${b.id}">Sil</button></div></div></div>`;
+  }).join(""):`<div class="empty">Bu filtrede fatura yok.</div>`;
+
   $("vehicleReminderList").innerHTML=db.vehicleReminders.length?db.vehicleReminders.map(r=>{
     const v=db.vehicles.find(x=>x.id===r.vehicleId); if(!v)return "";
     const days=Math.ceil((new Date(r.dueDate)-new Date())/86400000);
@@ -240,6 +252,49 @@ $("vehicleList").addEventListener("click",e=>{
   if(add)openVehicleLog(add.dataset.vehicleLog);
   if(ed)editVehicle(ed.dataset.editVehicle);
   if(del){const v=db.vehicles.find(x=>x.id===del.dataset.deleteVehicle);if(v&&confirm(`${v.make} ${v.model} silinsin mi?`)){db.vehicles=db.vehicles.filter(x=>x.id!==v.id);db.vehicleLogs=db.vehicleLogs.filter(x=>x.vehicleId!==v.id);save();toast("Araç silindi")}}
+});
+
+
+function openBill(){
+  $("billForm").reset();$("billId").value="";$("billModalTitle").textContent="Fatura Ekle";openModal("billModal")
+}
+function saveBill(){
+  const id=$("billId").value,data={type:$("billType").value,provider:$("billProvider").value.trim(),amount:Number($("billAmount").value),currency:$("billCurrency").value,dueDate:$("billDueDate").value,note:$("billNote").value.trim(),status:"unpaid"};
+  if(!data.provider||!data.amount||!data.dueDate){toast("Sağlayıcı, tutar ve son ödeme tarihi gerekli");return}
+  if(id){const b=db.bills.find(x=>x.id===id);Object.assign(b,data);toast("Fatura güncellendi")}
+  else{data.id=uid();db.bills.push(data);toast("Fatura kaydedildi")}
+  save();closeModal("billModal")
+}
+function editBill(id){
+  const b=db.bills.find(x=>x.id===id);if(!b)return;
+  $("billId").value=b.id;$("billType").value=b.type;$("billProvider").value=b.provider;$("billAmount").value=b.amount;$("billCurrency").value=b.currency;$("billDueDate").value=b.dueDate;$("billNote").value=b.note||"";$("billModalTitle").textContent="Fatura Düzenle";openModal("billModal")
+}
+function payBill(id){
+  const b=db.bills.find(x=>x.id===id);if(!b)return;
+  $("paymentBillId").value=id;$("billPaymentAmount").value=b.amount;$("billPaymentDate").value=today();
+  $("billPaymentAccount").innerHTML=db.accounts.filter(a=>a.currency===b.currency).map(a=>`<option value="${a.id}">${esc(a.name)} · ${a.currency}</option>`).join("")||`<option value="">${b.currency} hesap yok</option>`;
+  openModal("billPaymentModal")
+}
+function saveBillPayment(){
+  const id=$("paymentBillId").value,b=db.bills.find(x=>x.id===id),amount=Number($("billPaymentAmount").value),accountId=$("billPaymentAccount").value;
+  if(!b||!amount||!accountId){toast("Tutar ve hesap gerekli");return}
+  const a=db.accounts.find(x=>x.id===accountId);
+  if(!a||a.currency!==b.currency||amount>b.amount){toast("Tutar veya hesap para birimini kontrol et");return}
+  a.balance-=amount;
+  db.expenses.push({id:uid(),type:"expense",amount,currency:b.currency,category:"Fatura · "+b.type,member:"",payment:a.name,date:$("billPaymentDate").value,merchant:b.provider,note:b.note||"",billId:b.id});
+  if(amount===b.amount){b.status="paid";b.paidDate=$("billPaymentDate").value}else{b.status="unpaid";b.paid=amount}
+  save();closeModal("billPaymentModal");toast("Fatura ödemesi kaydedildi")
+}
+$("addBillBtn").onclick=openBill;
+$("billsModuleBtn").onclick=()=>document.getElementById("billsCard").scrollIntoView({behavior:"smooth"});
+$("billForm").onsubmit=e=>{e.preventDefault();saveBill()};
+$("billPaymentForm").onsubmit=e=>{e.preventDefault();saveBillPayment()};
+document.querySelectorAll("[data-bill-filter]").forEach(b=>b.onclick=()=>{billFilter=b.dataset.billFilter;document.querySelectorAll("[data-bill-filter]").forEach(x=>x.classList.remove("active"));b.classList.add("active");render()});
+$("billList").addEventListener("click",e=>{
+  const p=e.target.closest("[data-pay-bill]"),ed=e.target.closest("[data-edit-bill]"),del=e.target.closest("[data-delete-bill]");
+  if(p)payBill(p.dataset.payBill);
+  if(ed)editBill(ed.dataset.editBill);
+  if(del){const b=db.bills.find(x=>x.id===del.dataset.deleteBill);if(b&&confirm(`${b.provider} faturası silinsin mi?`)){db.bills=db.bills.filter(x=>x.id!==b.id);save();toast("Fatura silindi")}}
 });
 
 function updateFuelPrice(){
