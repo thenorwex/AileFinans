@@ -91,11 +91,18 @@ el('addAccount').onclick=()=>openAccount();
 function openAccount(){
  el('accountForm').reset();openModal('accountModal');
 }
-el('accountForm').onsubmit=e=>{
- e.preventDefault();
- db.accounts.push({name:el('accountName').value.trim(),type:el('accountType').value,balance:Number(el('accountBalance').value)||0,currency:el('accountCurrency').value.slice(0,3)});
- save();closeModal('accountModal');
-};
+function saveAccount(){
+ const name=el('accountName').value.trim();
+ const type=el('accountType').value;
+ const balance=Number(el('accountBalance').value)||0;
+ const currency=el('accountCurrency').value.slice(0,3);
+ if(!name){alert('Lütfen hesap veya kart adı girin.');el('accountName').focus();return}
+ db.accounts.push({name,type,balance,currency});
+ save();
+ closeModal('accountModal');
+}
+el('accountForm').onsubmit=e=>{e.preventDefault();saveAccount()};
+el('saveAccountBtn').onclick=saveAccount;
 function simpleAdd(title,placeholder,done){el('simpleTitle').textContent=title;el('simpleForm').innerHTML=`<input id="simpleInput" placeholder="${placeholder}" required><button class="primary" style="margin-top:12px">Kaydet</button>`;el('simpleForm').onsubmit=e=>{e.preventDefault();done(el('simpleInput').value.trim());closeModal('simpleModal')};openModal('simpleModal')}
 render();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
