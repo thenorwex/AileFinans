@@ -48,8 +48,14 @@
   <div class="card">
     <h2>Modüller</h2>
     <div class="module-grid">
-      <button>🚗 Araçlar</button><button>🧾 Faturalar</button><button>💳 Borçlar</button><button>❤️ Sağlık</button>
+      <button>🚗 Araçlar</button><button>🧾 Faturalar</button><button id="debtsModuleBtn">💳 Borçlar</button><button>❤️ Sağlık</button>
     </div>
+  </div>
+  <div class="card" id="debtsCard">
+    <div class="section-head"><h2>Borçlar & Alacaklar</h2><button class="small-btn" id="addDebtBtn">+ Kayıt</button></div>
+    <div class="debt-tabs"><button class="small-btn active" data-debt-filter="all">Tümü</button><button class="small-btn" data-debt-filter="debt">Borçlarım</button><button class="small-btn" data-debt-filter="receivable">Alacaklarım</button></div>
+    <div id="debtSummary" class="stats debt-stats"></div>
+    <div id="debtList" class="list"></div>
   </div>
 </section>
 </main>
@@ -128,6 +134,37 @@
   <div class="modal-box">
     <div class="modal-head"><h2 id="detailTitle">Hesap Hareketleri</h2><button class="x" data-close="accountDetailModal">×</button></div>
     <div id="accountDetailBody" class="list"></div>
+  </div>
+</div>
+
+<div class="modal" id="debtModal">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="debtModalTitle">Borç / Alacak Ekle</h2><button class="x" data-close="debtModal">×</button></div>
+    <form id="debtForm">
+      <input type="hidden" id="debtId">
+      <label>Kayıt türü<select id="debtType"><option value="debt">Benim borcum</option><option value="receivable">Benim alacağım</option></select></label>
+      <label>Kişi / kurum<input id="debtPerson" required placeholder="Örn. Ahmet"></label>
+      <label>Toplam tutar<input id="debtAmount" type="number" step="0.01" min="0.01" required></label>
+      <label>Para birimi<select id="debtCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+      <label>Tarih<input id="debtDate" type="date" required></label>
+      <label>Vade / son ödeme tarihi<input id="debtDueDate" type="date"></label>
+      <label>Açıklama<textarea id="debtNote"></textarea></label>
+      <button class="primary-btn full" type="submit">Kaydet</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="debtPaymentModal">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="debtPaymentTitle">Ödeme Kaydet</h2><button class="x" data-close="debtPaymentModal">×</button></div>
+    <form id="debtPaymentForm">
+      <input type="hidden" id="paymentDebtId">
+      <label>Ödeme tutarı<input id="debtPaymentAmount" type="number" step="0.01" min="0.01" required></label>
+      <label>Ödeme yapılacak / alınacak hesap<select id="debtPaymentAccount"></select></label>
+      <label>Tarih<input id="debtPaymentDate" type="date" required></label>
+      <label>Not<textarea id="debtPaymentNote"></textarea></label>
+      <button class="primary-btn full" type="submit">Ödemeyi Kaydet</button>
+    </form>
   </div>
 </div>
 

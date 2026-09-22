@@ -1,5 +1,5 @@
-const KEY="ailefinans_v5";
-const VERSION_OLD_KEYS=["ailefinans_v4","ailefinans_v3","ailefinans_v2"];
+const KEY="ailefinans_v6";
+const VERSION_OLD_KEYS=["ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
 const OLD_KEYS=["ailefinans_v3","ailefinans_v2"];
 const $=id=>document.getElementById(id);
 let editAccountId=null;
@@ -26,8 +26,10 @@ function load(){
     accounts:Array.isArray(x.accounts)?x.accounts.map(normalizeAccount):[],
     expenses:Array.isArray(x.expenses)?x.expenses:[],
     income:Array.isArray(x.income)?x.income:[],
-    transfers:Array.isArray(x.transfers)?x.transfers:[]
+    transfers:Array.isArray(x.transfers)?x.transfers:[],
+    debts:Array.isArray(x.debts)?x.debts:[]
   };
+  db.debts=db.debts.map(x=>({...x,id:x.id||uid(),type:x.type||"debt",paid:Number(x.paid)||0,payments:Array.isArray(x.payments)?x.payments:[]}));
   db.income=db.income.map(x=>({...x,id:x.id||uid(),type:"income"}));
   db.expenses=db.expenses.map(x=>({...x,id:x.id||uid(),type:"expense"}));
   db.transfers=db.transfers.map(x=>({...x,id:x.id||uid(),type:"transfer"}));
@@ -40,7 +42,8 @@ function load(){
   }
   localStorage.setItem(KEY,JSON.stringify(db));
 }
-let db={members:[],accounts:[],expenses:[],income:[],transfers:[]};
+let db={members:[],accounts:[],expenses:[],income:[],transfers:[],debts:[]};
+let debtFilter="all";
 
 function render(){
   $("accountCount").textContent=db.accounts.length;
@@ -66,6 +69,16 @@ function render(){
   $("transferFrom").innerHTML=transferOpts;
   $("transferTo").innerHTML=transferOpts;
   $("expenseMember").innerHTML=db.members.map(m=>`<option>${esc(m)}</option>`).join("");
+
+  const debtRows=db.debts.filter(d=>debtFilter==="all"||d.type===debtFilter).slice().reverse();
+  const debtTotal=debtRows.filter(d=>d.type==="debt").reduce((s,d)=>s+Math.max(0,d.amount-d.paid),0);
+  const receivableTotal=debtRows.filter(d=>d.type==="receivable").reduce((s,d)=>s+Math.max(0,d.amount-d.paid),0);
+  $("debtSummary").innerHTML=`<div class="stat"><span>Ödenecek</span><strong>${money(debtTotal)}</strong></div><div class="stat"><span>Alınacak</span><strong>${money(receivableTotal)}</strong></div><div class="stat"><span>Kayıt</span><strong>${debtRows.length}</strong></div>`;
+  $("debtList").innerHTML=debtRows.length?debtRows.map(d=>{
+    const remain=Math.max(0,Number(d.amount)-Number(d.paid||0)), status=remain<=0?"Ödendi":(d.paid>0?"Kısmi ödendi":"Ödenmedi");
+    const due=d.dueDate?` · Vade ${esc(d.dueDate)}`:"";
+    return `<div class="item"><div class="item-main"><div class="item-title">${d.type==="debt"?"💳 Borç":"💰 Alacak"} · ${esc(d.person)}</div><div class="item-sub">${status}${due}</div></div><div class="item-right"><div class="amount">${money(remain,d.currency)}</div><div class="actions">${remain>0?`<button class="icon-btn" data-pay-debt="${d.id}">${d.type==="debt"?"Öde":"Tahsil Et"}</button>`:""}<button class="icon-btn" data-edit-debt="${d.id}">Düzenle</button><button class="icon-btn danger" data-delete-debt="${d.id}">Sil</button></div></div></div>`;
+  }).join(""):`<div class="empty">Bu filtrede borç/alacak kaydı yok.</div>`;
 
   $("expenseList").innerHTML=db.expenses.length?db.expenses.slice().reverse().map(x=>`
     <div class="item"><div class="item-main"><div class="item-title">${esc(x.category||"Harcama")}</div><div class="item-sub">${esc(x.merchant||"")} · ${esc(x.member||"")} · ${esc(x.payment||"")}</div></div><div class="item-right"><div class="amount">-${money(x.amount,x.currency)}</div><div class="item-sub">${esc(x.date||"")}</div></div></div>`).join(""):`<div class="empty">Henüz harcama yok.</div>`;
@@ -150,6 +163,54 @@ $("transferForm").onsubmit=e=>{e.preventDefault();saveTransfer()};
 $("accountList").addEventListener("click",e=>{
   const d=e.target.closest("[data-detail]"),ed=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");
   if(d&&!ed&&!del)openAccountDetail(d.dataset.detail);
+});
+
+
+function openDebt(){
+  $("debtForm").reset();$("debtId").value="";$("debtDate").value=today();$("debtModalTitle").textContent="Borç / Alacak Ekle";openModal("debtModal")
+}
+function saveDebt(){
+  const id=$("debtId").value,type=$("debtType").value,person=$("debtPerson").value.trim(),amount=Number($("debtAmount").value),currency=$("debtCurrency").value;
+  if(!person||!amount){toast("Kişi ve tutar gerekli");return}
+  if(id){
+    const d=db.debts.find(x=>x.id===id); if(!d)return;
+    d.type=type;d.person=person;d.amount=amount;d.currency=currency;d.date=$("debtDate").value;d.dueDate=$("debtDueDate").value;d.note=$("debtNote").value.trim();
+    save();closeModal("debtModal");toast("Kayıt güncellendi");
+  }else{
+    db.debts.push({id:uid(),type,person,amount,currency,date:$("debtDate").value,dueDate:$("debtDueDate").value,note:$("debtNote").value.trim(),paid:0,payments:[]});
+    save();closeModal("debtModal");toast("Borç/alacak kaydedildi");
+  }
+}
+function editDebt(id){
+  const d=db.debts.find(x=>x.id===id);if(!d)return;
+  $("debtId").value=d.id;$("debtType").value=d.type;$("debtPerson").value=d.person;$("debtAmount").value=d.amount;$("debtCurrency").value=d.currency;$("debtDate").value=d.date||today();$("debtDueDate").value=d.dueDate||"";$("debtNote").value=d.note||"";$("debtModalTitle").textContent="Borç / Alacak Düzenle";openModal("debtModal")
+}
+function payDebt(id){
+  const d=db.debts.find(x=>x.id===id);if(!d)return;
+  const remain=Math.max(0,d.amount-d.paid);$("paymentDebtId").value=id;$("debtPaymentAmount").value=remain;$("debtPaymentDate").value=today();$("debtPaymentTitle").textContent=d.type==="debt"?"Borç Öde":"Alacak Tahsil Et";
+  const opts=db.accounts.filter(a=>a.currency===d.currency).map(a=>`<option value="${a.id}">${esc(a.name)} · ${a.currency}</option>`).join("");
+  $("debtPaymentAccount").innerHTML=opts||`<option value="">${d.currency} hesap yok</option>`;
+  openModal("debtPaymentModal")
+}
+function saveDebtPayment(){
+  const id=$("paymentDebtId").value,d=db.debts.find(x=>x.id===id),amount=Number($("debtPaymentAmount").value),accountId=$("debtPaymentAccount").value;
+  if(!d||!amount||!accountId){toast("Tutar ve hesap gerekli");return}
+  const remain=d.amount-d.paid;if(amount>remain){toast("Kalan tutardan fazla ödeme yapılamaz");return}
+  const a=db.accounts.find(x=>x.id===accountId);if(!a||a.currency!==d.currency){toast("Hesap para birimini kontrol et");return}
+  if(d.type==="debt")a.balance-=amount;else a.balance+=amount;
+  d.paid+=amount;d.payments.push({id:uid(),amount,date:$("debtPaymentDate").value,accountId,note:$("debtPaymentNote").value.trim()});
+  save();closeModal("debtPaymentModal");toast(d.type==="debt"?"Borç ödemesi kaydedildi":"Alacak tahsilatı kaydedildi")
+}
+$("addDebtBtn").onclick=openDebt;
+$("debtsModuleBtn").onclick=()=>document.getElementById("debtsCard").scrollIntoView({behavior:"smooth"});
+$("debtForm").onsubmit=e=>{e.preventDefault();saveDebt()};
+$("debtPaymentForm").onsubmit=e=>{e.preventDefault();saveDebtPayment()};
+document.querySelectorAll("[data-debt-filter]").forEach(b=>b.onclick=()=>{debtFilter=b.dataset.debtFilter;document.querySelectorAll("[data-debt-filter]").forEach(x=>x.classList.remove("active"));b.classList.add("active");render()});
+$("debtList").addEventListener("click",e=>{
+  const pay=e.target.closest("[data-pay-debt]"),ed=e.target.closest("[data-edit-debt]"),del=e.target.closest("[data-delete-debt]");
+  if(pay)payDebt(pay.dataset.payDebt);
+  if(ed)editDebt(ed.dataset.editDebt);
+  if(del){const d=db.debts.find(x=>x.id===del.dataset.deleteDebt);if(d&&confirm(`"${d.person}" kaydı silinsin mi?`)){db.debts=db.debts.filter(x=>x.id!==d.id);save();toast("Kayıt silindi")}}
 });
 
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
