@@ -55,6 +55,10 @@
     <div class="section-head"><h2>🚗 Araçlar</h2><button class="small-btn" id="addVehicleBtn">+ Araç</button></div>
     <div id="vehicleList" class="list"></div>
   </div>
+  <div class="card" id="vehicleRemindersCard">
+    <div class="section-head"><h2>🔔 Araç Takvimi</h2></div>
+    <div id="vehicleReminderList" class="list"></div>
+  </div>
   <div class="card" id="debtsCard">
     <div class="section-head"><h2>Borçlar & Alacaklar</h2><button class="small-btn" id="addDebtBtn">+ Kayıt</button></div>
     <div class="debt-tabs"><button class="small-btn active" data-debt-filter="all">Tümü</button><button class="small-btn" data-debt-filter="debt">Borçlarım</button><button class="small-btn" data-debt-filter="receivable">Alacaklarım</button></div>
@@ -198,7 +202,7 @@
       <label>Kilometre<input id="vehicleLogKm" type="number" min="0" step="1" required></label>
       <div id="fuelFields">
         <label>Litre<input id="fuelLiters" type="number" min="0" step="0.01"></label>
-        <label>Litre fiyatı<input id="fuelPrice" type="number" min="0" step="0.01"></label>
+        <div class="calculated-box">Hesaplanan litre fiyatı: <b id="fuelPriceCalculated">0,00 TL/L</b></div>
         <label>İstasyon<input id="fuelStation" placeholder="İstasyon"></label>
       </div>
       <div id="costFields">
@@ -208,6 +212,18 @@
         <label>Ödeme hesabı<select id="vehiclePaymentAccount"></select></label>
       </div>
       <button class="primary-btn full" type="submit">Kaydı Kaydet</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="vehicleReminderModal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>Araç Hatırlatması</h2><button class="x" data-close="vehicleReminderModal">×</button></div>
+    <form id="vehicleReminderForm">
+      <input type="hidden" id="reminderVehicleId">
+      <label>İşlem<select id="reminderType"><option>Sigorta</option><option>Kasko</option><option>Muayene</option><option>MTV</option><option>Periyodik bakım</option><option>Lastik</option><option>Diğer</option></select></label>
+      <label>Son tarih<input id="reminderDueDate" type="date" required></label>
+      <button class="primary-btn full" type="submit">Hatırlatmayı Kaydet</button>
     </form>
   </div>
 </div>

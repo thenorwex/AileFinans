@@ -2,3 +2,4 @@
 .account-open{border:0;background:transparent;text-align:left;padding:0;cursor:pointer;min-width:0;flex:1;color:inherit}.account-open:active{opacity:.65}
 .debt-tabs{display:flex;gap:7px;margin:10px 0;flex-wrap:wrap}.debt-tabs .active{background:#111827;color:#fff}.debt-stats{margin:10px 0;grid-template-columns:repeat(3,1fr)}
 #vehiclesCard{margin-top:12px}
+.calculated-box{padding:11px;border:1px dashed #d1d5db;border-radius:10px;background:#f9fafb;margin:8px 0;color:#374151}

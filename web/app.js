@@ -1,5 +1,5 @@
-const KEY="ailefinans_v7";
-const VERSION_OLD_KEYS=["ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
+const KEY="ailefinans_v8";
+const VERSION_OLD_KEYS=["ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
 const OLD_KEYS=["ailefinans_v3","ailefinans_v2"];
 const $=id=>document.getElementById(id);
 let editAccountId=null;
@@ -28,7 +28,8 @@ function load(){
     income:Array.isArray(x.income)?x.income:[],
     transfers:Array.isArray(x.transfers)?x.transfers:[],
     debts:Array.isArray(x.debts)?x.debts:[],
-    vehicles:Array.isArray(x.vehicles)?x.vehicles:[]
+    vehicles:Array.isArray(x.vehicles)?x.vehicles:[],
+    vehicleReminders:Array.isArray(x.vehicleReminders)?x.vehicleReminders:[]
   };
   db.debts=db.debts.map(x=>({...x,id:x.id||uid(),type:x.type||"debt",paid:Number(x.paid)||0,payments:Array.isArray(x.payments)?x.payments:[]}));
   db.income=db.income.map(x=>({...x,id:x.id||uid(),type:"income"}));
@@ -76,11 +77,18 @@ function render(){
   const debtRows=db.debts.filter(d=>debtFilter==="all"||d.type===debtFilter).slice().reverse();
   const debtTotal=debtRows.filter(d=>d.type==="debt").reduce((s,d)=>s+Math.max(0,d.amount-d.paid),0);
   const receivableTotal=debtRows.filter(d=>d.type==="receivable").reduce((s,d)=>s+Math.max(0,d.amount-d.paid),0);
+  $("vehicleReminderList").innerHTML=db.vehicleReminders.length?db.vehicleReminders.map(r=>{
+    const v=db.vehicles.find(x=>x.id===r.vehicleId); if(!v)return "";
+    const days=Math.ceil((new Date(r.dueDate)-new Date())/86400000);
+    const state=days<0?"🔴 Geçti":days<=30?"🟡 Yaklaşıyor":"🟢 Planlı";
+    return `<div class="item"><div><div class="item-title">${esc(v.make)} ${esc(v.model)} · ${esc(r.type)}</div><div class="item-sub">${state} · ${esc(r.dueDate)}</div></div><button class="icon-btn danger" data-delete-reminder="${r.id}">Sil</button></div>`;
+  }).join(""):`<div class="empty">Yaklaşan araç işlemi yok.</div>`;
+
   $("vehicleList").innerHTML=db.vehicles.length?db.vehicles.map(v=>{
     const logs=db.vehicleLogs.filter(l=>l.vehicleId===v.id);
     const latestKm=logs.filter(l=>Number(l.km)>=0).sort((a,b)=>Number(b.km)-Number(a.km))[0]?.km;
     const km=latestKm!==undefined?latestKm:(v.km||0);
-    return `<div class="item"><div class="item-main"><div class="item-title">🚗 ${esc(v.make)} ${esc(v.model)}</div><div class="item-sub">${esc(v.plate||"Plaka yok")} · ${esc(v.fuel)} · ${Number(km).toLocaleString("tr-TR")} km</div></div><div class="actions"><button class="icon-btn" data-vehicle-log="${v.id}">+ Kayıt</button><button class="icon-btn" data-edit-vehicle="${v.id}">Düzenle</button><button class="icon-btn danger" data-delete-vehicle="${v.id}">Sil</button></div></div>`;
+    return `<div class="item"><div class="item-main"><div class="item-title">🚗 ${esc(v.make)} ${esc(v.model)}</div><div class="item-sub">${esc(v.plate||"Plaka yok")} · ${esc(v.fuel)} · ${Number(km).toLocaleString("tr-TR")} km</div></div><div class="actions"><button class="icon-btn" data-vehicle-log="${v.id}">+ Kayıt</button><button class="icon-btn" data-add-reminder="${v.id}">🔔</button><button class="icon-btn" data-edit-vehicle="${v.id}">Düzenle</button><button class="icon-btn danger" data-delete-vehicle="${v.id}">Sil</button></div></div>`;
   }).join(""):`<div class="empty">Henüz araç eklenmedi.</div>`;
 
   $("debtSummary").innerHTML=`<div class="stat"><span>Ödenecek</span><strong>${money(debtTotal)}</strong></div><div class="stat"><span>Alınacak</span><strong>${money(receivableTotal)}</strong></div><div class="stat"><span>Kayıt</span><strong>${debtRows.length}</strong></div>`;
@@ -207,8 +215,12 @@ function toggleVehicleFields(){
 function saveVehicleLog(){
   const id=$("vehicleLogId").value,v=db.vehicles.find(x=>x.id===id),type=$("vehicleLogType").value,km=Number($("vehicleLogKm").value)||0,date=$("vehicleLogDate").value;
   if(!v)return;
-  const log={id:uid(),vehicleId:id,type,km,date,desc:$("vehicleDesc").value.trim(),amount:Number($("vehicleCost").value)||0,currency:$("vehicleCurrency").value,accountId:$("vehiclePaymentAccount").value,liters:Number($("fuelLiters").value)||0,literPrice:Number($("fuelPrice").value)||0,station:$("fuelStation").value.trim()};
-  if(type==="fuel" && !log.amount && log.liters&&log.literPrice)log.amount=log.liters*log.literPrice;
+  const liters=Number($("fuelLiters").value)||0;
+  const log={id:uid(),vehicleId:id,type,km,date,desc:$("vehicleDesc").value.trim(),amount:Number($("vehicleCost").value)||0,currency:$("vehicleCurrency").value,accountId:$("vehiclePaymentAccount").value,liters,literPrice:0,station:$("fuelStation").value.trim()};
+  if(type==="fuel"){
+    if(!log.amount||!liters){toast("Yakıt için litre ve toplam tutar gerekli");return}
+    log.literPrice=log.amount/liters;
+  }
   if(type!=="odometer" && (!log.amount||!log.accountId)){toast("Tutar ve ödeme hesabı gerekli");return}
   if(log.amount){
     const a=db.accounts.find(x=>x.id===log.accountId);
@@ -228,6 +240,34 @@ $("vehicleList").addEventListener("click",e=>{
   if(add)openVehicleLog(add.dataset.vehicleLog);
   if(ed)editVehicle(ed.dataset.editVehicle);
   if(del){const v=db.vehicles.find(x=>x.id===del.dataset.deleteVehicle);if(v&&confirm(`${v.make} ${v.model} silinsin mi?`)){db.vehicles=db.vehicles.filter(x=>x.id!==v.id);db.vehicleLogs=db.vehicleLogs.filter(x=>x.vehicleId!==v.id);save();toast("Araç silindi")}}
+});
+
+function updateFuelPrice(){
+  const liters=Number($("fuelLiters").value)||0,total=Number($("vehicleCost").value)||0;
+  $("fuelPriceCalculated").textContent=(liters&&total?(total/liters).toLocaleString("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2}):"0,00")+" TL/L";
+}
+$("fuelLiters").oninput=updateFuelPrice;
+$("vehicleCost").oninput=updateFuelPrice;
+
+function openReminder(vehicleId){
+  $("vehicleReminderForm").reset();
+  $("reminderVehicleId").value=vehicleId;
+  openModal("vehicleReminderModal");
+}
+$("vehicleList").addEventListener("click",e=>{
+  const b=e.target.closest("[data-add-reminder]");
+  if(b)openReminder(b.dataset.addReminder);
+});
+$("vehicleReminderForm").onsubmit=e=>{
+  e.preventDefault();
+  const vehicleId=$("reminderVehicleId").value,type=$("reminderType").value,dueDate=$("reminderDueDate").value;
+  if(!vehicleId||!dueDate){toast("İşlem ve tarih gerekli");return}
+  db.vehicleReminders.push({id:uid(),vehicleId,type,dueDate});
+  save();closeModal("vehicleReminderModal");toast("Hatırlatma kaydedildi");
+};
+$("vehicleReminderList").addEventListener("click",e=>{
+  const b=e.target.closest("[data-delete-reminder]");
+  if(b){db.vehicleReminders=db.vehicleReminders.filter(x=>x.id!==b.dataset.deleteReminder);save();toast("Hatırlatma silindi")}
 });
 
 function openDebt(){
