@@ -60,7 +60,7 @@
     <div id="vehicleReminderList" class="list"></div>
   </div>
   <div class="card" id="investmentsCard">
-    <div class="section-head"><h2>📈 Yatırımlar</h2><button class="small-btn" id="addInvestmentBtn">+ Yatırım</button></div>
+    <div class="section-head"><h2>📈 Yatırımlar</h2><div class="actions"><button class="small-btn" id="refreshInvestmentsBtn">↻ Güncelle</button><button class="small-btn" id="addInvestmentBtn">+ Yatırım</button></div></div>
     <div class="stats" id="investmentSummary"></div>
     <div class="debt-tabs"><button class="small-btn active" data-invest-filter="all">Tümü</button><button class="small-btn" data-invest-filter="open">Açık</button><button class="small-btn" data-invest-filter="closed">Kapalı</button></div>
     <div id="investmentList" class="list"></div>
@@ -234,7 +234,10 @@
     <form id="investmentForm">
       <input type="hidden" id="investmentId">
       <label>Yatırım türü<select id="investmentType"><option>Hisse Senedi</option><option>Kripto</option><option>Altın</option><option>Döviz</option><option>Fon</option><option>Mevduat</option><option>Diğer</option></select></label>
-      <label>Varlık adı<input id="investmentName" required placeholder="Örn. Altın, BTC, XU100 fonu"></label>
+      <label>Varlık adı<input id="investmentName" required placeholder="Örn. Gram Altın, BTC, USD"></label>
+      <label>Otomatik fiyat takibi<select id="investmentAuto"><option value="auto">Otomatik (destekleniyorsa)</option><option value="manual">Manuel</option></select></label>
+      <label>Varlık kodu / sembol<input id="investmentSymbol" placeholder="Örn. XAU_GRAM, USD, EUR, BTC"></label>
+      <div class="calculated-box" id="investmentLivePriceBox">Canlı fiyat: <b id="investmentLivePrice">-</b><br><small id="investmentLiveUpdated">Henüz güncellenmedi</small></div>
       <label>Para birimi<select id="investmentCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label>
       <label>Adet / miktar<input id="investmentQty" type="number" min="0" step="0.000001" required></label>
       <label>Toplam maliyet<input id="investmentCost" type="number" min="0" step="0.01" required></label>

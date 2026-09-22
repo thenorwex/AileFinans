@@ -7,3 +7,5 @@
 #billsCard{margin-top:12px}
 
 #investmentsCard{margin-top:12px}
+
+#investmentsCard .section-head .actions{display:flex;gap:8px;align-items:center}

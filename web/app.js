@@ -1,5 +1,5 @@
-const KEY="ailefinans_v10";
-const VERSION_OLD_KEYS=["ailefinans_v9","ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
+const KEY="ailefinans_v11";
+const VERSION_OLD_KEYS=["ailefinans_v10","ailefinans_v9","ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
 const OLD_KEYS=["ailefinans_v3","ailefinans_v2"];
 const $=id=>document.getElementById(id);
 let editAccountId=null;
@@ -82,14 +82,69 @@ function render(){
   const debtRows=db.debts.filter(d=>debtFilter==="all"||d.type===debtFilter).slice().reverse();
   const debtTotal=debtRows.filter(d=>d.type==="debt").reduce((s,d)=>s+Math.max(0,d.amount-d.paid),0);
   const receivableTotal=debtRows.filter(d=>d.type==="receivable").reduce((s,d)=>s+Math.max(0,d.amount-d.paid),0);
+
+const MARKET_API="https://tlcevir.com/api/rates";
+let marketRates={};
+let marketLastUpdated=null;
+
+async function fetchMarketRates(){
+  try{
+    const res=await fetch(MARKET_API,{cache:"no-store"});
+    if(!res.ok) throw new Error("market");
+    const data=await res.json();
+    marketRates=data.rates||data.data||data;
+    marketLastUpdated=new Date();
+    return true;
+  }catch(e){
+    console.warn("Piyasa verisi alınamadı",e);
+    return false;
+  }
+}
+function normalizeSymbol(s){return String(s||"").trim().toUpperCase().replace(/[-\s]/g,"_")}
+function findRate(symbol){
+  const key=normalizeSymbol(symbol);
+  const candidates=[key,key.replace("_TRY",""),key.replace("TRY_",""),key==="XAU_GRAM"?"GRAMALTIN":key,key==="GOLD"?"XAU_GRAM":key];
+  for(const c of candidates){
+    const v=marketRates[c];
+    if(typeof v==="number")return v;
+    if(v&&typeof v==="object"){
+      const n=Number(v.satis??v.sell??v.ask??v.price??v.rate);
+      if(Number.isFinite(n))return n;
+    }
+  }
+  return null;
+}
+function autoValueForInvestment(i){
+  if(i.auto!=="auto"||!i.symbol)return null;
+  const rate=findRate(i.symbol);
+  if(rate==null)return null;
+  // TRY-denominated quantity assets such as gram gold use rate directly.
+  if(i.currency==="TRY") return Number(i.qty)*rate;
+  // For foreign currency assets, API rate is assumed to be TRY per unit when symbol is USD/EUR/GBP.
+  return Number(i.qty)*rate;
+}
+async function refreshInvestments(){
+  const ok=await fetchMarketRates();
+  let changed=0;
+  if(ok){
+    db.investments.forEach(i=>{
+      const val=autoValueForInvestment(i);
+      if(val!=null){i.value=val;i.livePrice=val/Number(i.qty||1);i.liveUpdated=new Date().toISOString();changed++}
+    });
+    save();render();
+  }
+  toast(ok?`${changed} yatırım güncellendi`:"Piyasa verisi alınamadı, son değerler korundu");
+}
   const invs=db.investments.filter(i=>investmentFilter==="all"||(investmentFilter==="open"?i.status!=="closed":i.status==="closed"));
   const investedCost=invs.reduce((s,i)=>s+Number(i.cost||0),0);
   const currentValue=invs.reduce((s,i)=>s+Number(i.value||0),0);
   const pnl=currentValue-investedCost;
   $("investmentSummary").innerHTML=`<div class="stat"><span>Maliyet</span><strong>${money(investedCost)}</strong></div><div class="stat"><span>Güncel Değer</span><strong>${money(currentValue)}</strong></div><div class="stat"><span>Kâr / Zarar</span><strong>${money(pnl)}</strong></div>`;
   $("investmentList").innerHTML=invs.length?invs.map(i=>{
+    const live=autoValueForInvestment(i); if(live!=null)i.value=live;
     const diff=Number(i.value||0)-Number(i.cost||0),pct=Number(i.cost)?(diff/i.cost*100):0;
-    return `<div class="item"><div><div class="item-title">📈 ${esc(i.name)} · ${esc(i.type)}</div><div class="item-sub">${Number(i.qty).toLocaleString("tr-TR")} ${esc(i.currency)} · ${esc(i.date)} · ${i.status==="closed"?"Kapalı":"Açık"}</div></div><div class="item-right"><div class="amount">${money(i.value,i.currency)}</div><div class="item-sub">${diff>=0?"+":""}${money(diff,i.currency)} (${pct.toFixed(2)}%)</div><div class="actions"><button class="icon-btn" data-invest-tx="${i.id}">İşlem</button><button class="icon-btn" data-edit-invest="${i.id}">Düzenle</button><button class="icon-btn danger" data-delete-invest="${i.id}">Sil</button></div></div></div>`;
+    const liveText=live!=null?` · Canlı ${money(i.livePrice,i.currency)}`:"";
+    return `<div class="item"><div><div class="item-title">📈 ${esc(i.name)} · ${esc(i.type)}</div><div class="item-sub">${Number(i.qty).toLocaleString("tr-TR")} · ${esc(i.currency)} · ${esc(i.date)}${liveText} · ${i.status==="closed"?"Kapalı":"Açık"}</div></div><div class="item-right"><div class="amount">${money(i.value,i.currency)}</div><div class="item-sub">${diff>=0?"+":""}${money(diff,i.currency)} (${pct.toFixed(2)}%)</div><div class="actions"><button class="icon-btn" data-invest-tx="${i.id}">İşlem</button><button class="icon-btn" data-edit-invest="${i.id}">Düzenle</button><button class="icon-btn danger" data-delete-invest="${i.id}">Sil</button></div></div></div>`;
   }).join(""):`<div class="empty">Bu filtrede yatırım yok.</div>`;
 
   const bills=db.bills.filter(b=>billFilter==="all"||(billFilter==="paid"?b.paid:b.status!=="paid")).slice().sort((a,b)=>String(a.dueDate).localeCompare(String(b.dueDate)));
@@ -270,12 +325,12 @@ $("vehicleList").addEventListener("click",e=>{
 
 
 function openInvestment(){
-  $("investmentForm").reset();$("investmentId").value="";$("investmentModalTitle").textContent="Yatırım Ekle";$("investmentDate").value=today();
+  $("investmentForm").reset();$("investmentId").value="";$("investmentModalTitle").textContent="Yatırım Ekle";$("investmentDate").value=today();$("investmentAuto").value="auto";$("investmentLivePrice").textContent="-";$("investmentLiveUpdated").textContent="Kaydetmeden önce fiyatı güncelleyebilirsin";
   $("investmentAccount").innerHTML=db.accounts.map(a=>`<option value="${a.id}">${esc(a.name)} · ${a.currency}</option>`).join("");
   openModal("investmentModal")
 }
 function saveInvestment(){
-  const id=$("investmentId").value,data={type:$("investmentType").value,name:$("investmentName").value.trim(),currency:$("investmentCurrency").value,qty:Number($("investmentQty").value),cost:Number($("investmentCost").value),value:Number($("investmentValue").value),date:$("investmentDate").value,accountId:$("investmentAccount").value,note:$("investmentNote").value.trim(),status:"open"};
+  const id=$("investmentId").value,data={type:$("investmentType").value,name:$("investmentName").value.trim(),currency:$("investmentCurrency").value,qty:Number($("investmentQty").value),cost:Number($("investmentCost").value),value:Number($("investmentValue").value),date:$("investmentDate").value,auto:$("investmentAuto").value,symbol:$("investmentSymbol").value.trim().toUpperCase(),accountId:$("investmentAccount").value,note:$("investmentNote").value.trim(),status:"open"};
   if(!data.name||!data.qty||data.cost<0||data.value<0||!data.date){toast("Yatırım bilgilerini kontrol et");return}
   if(id){const i=db.investments.find(x=>x.id===id);Object.assign(i,data);toast("Yatırım güncellendi")}
   else{
@@ -290,7 +345,7 @@ function saveInvestment(){
 }
 function editInvestment(id){
   const i=db.investments.find(x=>x.id===id);if(!i)return;
-  $("investmentId").value=i.id;$("investmentType").value=i.type;$("investmentName").value=i.name;$("investmentCurrency").value=i.currency;$("investmentQty").value=i.qty;$("investmentCost").value=i.cost;$("investmentValue").value=i.value;$("investmentDate").value=i.date;$("investmentAccount").innerHTML=db.accounts.map(a=>`<option value="${a.id}">${esc(a.name)} · ${a.currency}</option>`).join("");$("investmentAccount").value=i.accountId||"";$("investmentNote").value=i.note||"";$("investmentModalTitle").textContent="Yatırım Düzenle";openModal("investmentModal")
+  $("investmentId").value=i.id;$("investmentType").value=i.type;$("investmentName").value=i.name;$("investmentAuto").value=i.auto||"manual";$("investmentSymbol").value=i.symbol||"";$("investmentCurrency").value=i.currency;$("investmentQty").value=i.qty;$("investmentCost").value=i.cost;$("investmentValue").value=i.value;$("investmentDate").value=i.date;$("investmentAccount").innerHTML=db.accounts.map(a=>`<option value="${a.id}">${esc(a.name)} · ${a.currency}</option>`).join("");$("investmentAccount").value=i.accountId||"";$("investmentNote").value=i.note||"";$("investmentModalTitle").textContent="Yatırım Düzenle";openModal("investmentModal")
 }
 function openInvestmentTx(id){
   const i=db.investments.find(x=>x.id===id);if(!i)return;
@@ -310,6 +365,18 @@ function saveInvestmentTx(){
   db.investmentTransactions.push({id:uid(),investmentId:i.id,type,amount,date,accountId,note:$("investmentTransactionNote").value.trim()});
   save();closeModal("investmentTransactionModal");toast("Yatırım işlemi kaydedildi")
 }
+
+async function previewInvestmentPrice(){
+  if($("investmentAuto").value!=="auto"||!$("investmentSymbol").value){$("investmentLivePrice").textContent="-";return}
+  if(!Object.keys(marketRates).length) await fetchMarketRates();
+  const rate=findRate($("investmentSymbol").value);
+  if(rate==null){$("investmentLivePrice").textContent="Desteklenmiyor";return}
+  $("investmentLivePrice").textContent=Number(rate).toLocaleString("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:4})+" "+$("investmentCurrency").value;
+  $("investmentLiveUpdated").textContent="Canlı veri: "+new Date().toLocaleString("tr-TR");
+}
+$("investmentSymbol").oninput=previewInvestmentPrice;
+$("investmentAuto").onchange=previewInvestmentPrice;
+$("refreshInvestmentsBtn").onclick=refreshInvestments;
 $("addInvestmentBtn").onclick=openInvestment;
 $("investmentsModuleBtn").onclick=()=>document.getElementById("investmentsCard").scrollIntoView({behavior:"smooth"});
 $("investmentForm").onsubmit=e=>{e.preventDefault();saveInvestment()};
@@ -465,3 +532,6 @@ document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>{docume
 
 load();render();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+
+setTimeout(()=>refreshInvestments(),800);
+setInterval(()=>refreshInvestments(),15*60*1000);
