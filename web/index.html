@@ -48,8 +48,12 @@
   <div class="card">
     <h2>Modüller</h2>
     <div class="module-grid">
-      <button>🚗 Araçlar</button><button>🧾 Faturalar</button><button id="debtsModuleBtn">💳 Borçlar</button><button>❤️ Sağlık</button>
+      <button id="vehiclesModuleBtn">🚗 Araçlar</button><button>🧾 Faturalar</button><button id="debtsModuleBtn">💳 Borçlar</button><button>❤️ Sağlık</button>
     </div>
+  </div>
+  <div class="card" id="vehiclesCard">
+    <div class="section-head"><h2>🚗 Araçlar</h2><button class="small-btn" id="addVehicleBtn">+ Araç</button></div>
+    <div id="vehicleList" class="list"></div>
   </div>
   <div class="card" id="debtsCard">
     <div class="section-head"><h2>Borçlar & Alacaklar</h2><button class="small-btn" id="addDebtBtn">+ Kayıt</button></div>
@@ -164,6 +168,46 @@
       <label>Tarih<input id="debtPaymentDate" type="date" required></label>
       <label>Not<textarea id="debtPaymentNote"></textarea></label>
       <button class="primary-btn full" type="submit">Ödemeyi Kaydet</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="vehicleModal">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="vehicleModalTitle">Araç Ekle</h2><button class="x" data-close="vehicleModal">×</button></div>
+    <form id="vehicleForm">
+      <input type="hidden" id="vehicleId">
+      <label>Marka<input id="vehicleMake" required placeholder="Skoda"></label>
+      <label>Model<input id="vehicleModel" required placeholder="Scala"></label>
+      <label>Model yılı<input id="vehicleYear" type="number" min="1900" max="2100"></label>
+      <label>Plaka<input id="vehiclePlate" placeholder="07 ABC 123"></label>
+      <label>Yakıt tipi<select id="vehicleFuel"><option>Benzin</option><option>Dizel</option><option>Hibrit</option><option>Elektrik</option><option>LPG</option></select></label>
+      <label>Mevcut kilometre<input id="vehicleKm" type="number" min="0" step="1" value="0"></label>
+      <button class="primary-btn full" type="submit">Kaydet</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="vehicleLogModal">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="vehicleLogTitle">Araç Kaydı</h2><button class="x" data-close="vehicleLogModal">×</button></div>
+    <form id="vehicleLogForm">
+      <input type="hidden" id="vehicleLogId">
+      <label>Kayıt türü<select id="vehicleLogType"><option value="fuel">⛽ Yakıt</option><option value="maintenance">🔧 Bakım</option><option value="expense">💸 Diğer masraf</option><option value="odometer">📍 Kilometre</option></select></label>
+      <label>Tarih<input id="vehicleLogDate" type="date" required></label>
+      <label>Kilometre<input id="vehicleLogKm" type="number" min="0" step="1" required></label>
+      <div id="fuelFields">
+        <label>Litre<input id="fuelLiters" type="number" min="0" step="0.01"></label>
+        <label>Litre fiyatı<input id="fuelPrice" type="number" min="0" step="0.01"></label>
+        <label>İstasyon<input id="fuelStation" placeholder="İstasyon"></label>
+      </div>
+      <div id="costFields">
+        <label>Tutar<input id="vehicleCost" type="number" min="0" step="0.01"></label>
+        <label>Para birimi<select id="vehicleCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+        <label>Açıklama<input id="vehicleDesc" placeholder="Yağ değişimi, lastik, park vb."></label>
+        <label>Ödeme hesabı<select id="vehiclePaymentAccount"></select></label>
+      </div>
+      <button class="primary-btn full" type="submit">Kaydı Kaydet</button>
     </form>
   </div>
 </div>
