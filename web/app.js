@@ -197,8 +197,28 @@ function saveDebtPayment(){
   if(!d||!amount||!accountId){toast("Tutar ve hesap gerekli");return}
   const remain=d.amount-d.paid;if(amount>remain){toast("Kalan tutardan fazla ödeme yapılamaz");return}
   const a=db.accounts.find(x=>x.id===accountId);if(!a||a.currency!==d.currency){toast("Hesap para birimini kontrol et");return}
-  if(d.type==="debt")a.balance-=amount;else a.balance+=amount;
-  d.paid+=amount;d.payments.push({id:uid(),amount,date:$("debtPaymentDate").value,accountId,note:$("debtPaymentNote").value.trim()});
+  const paymentId=uid();
+  if(d.type==="debt"){
+    a.balance-=amount;
+    db.expenses.push({
+      id:paymentId,type:"expense",amount,currency:d.currency,
+      category:"Borç Ödemesi",member:"",payment:a.name,
+      date:$("debtPaymentDate").value,
+      merchant:d.person,note:$("debtPaymentNote").value.trim(),
+      debtId:d.id,debtPaymentId:paymentId
+    });
+  }else{
+    a.balance+=amount;
+    db.income.push({
+      id:paymentId,type:"income",amount,currency:d.currency,
+      source:"Borç Tahsilatı",account:a.name,
+      date:$("debtPaymentDate").value,
+      note:`${d.person}${$("debtPaymentNote").value.trim()?" · "+$("debtPaymentNote").value.trim():""}`,
+      debtId:d.id,debtPaymentId:paymentId
+    });
+  }
+  d.paid+=amount;
+  d.payments.push({id:paymentId,amount,date:$("debtPaymentDate").value,accountId,note:$("debtPaymentNote").value.trim()});
   save();closeModal("debtPaymentModal");toast(d.type==="debt"?"Borç ödemesi kaydedildi":"Alacak tahsilatı kaydedildi")
 }
 $("addDebtBtn").onclick=openDebt;
