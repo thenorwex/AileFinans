@@ -1,5 +1,5 @@
-const KEY="ailefinans_v11";
-const VERSION_OLD_KEYS=["ailefinans_v10","ailefinans_v9","ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
+const KEY="ailefinans_v13";
+const VERSION_OLD_KEYS=["ailefinans_v12","ailefinans_v11","ailefinans_v10","ailefinans_v9","ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
 const OLD_KEYS=["ailefinans_v3","ailefinans_v2"];
 const $=id=>document.getElementById(id);
 let editAccountId=null;
@@ -9,7 +9,7 @@ function money(n,c="TRY"){return new Intl.NumberFormat("tr-TR",{minimumFractionD
 function today(){return new Date().toISOString().slice(0,10)}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.remove("show"),1800)}
 function openModal(id){$(id).classList.add("open")}
-function closeModal(id){$(id).classList.remove("open")}
+function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open","show","active");m.style.display="none";setTimeout(()=>{m.style.display=""},0)}
 function save(){localStorage.setItem(KEY,JSON.stringify(db));render()}
 function normalizeAccount(a){
   return {id:a.id||uid(),name:String(a.name||"").trim(),type:a.type||"Diğer",balance:Number(a.balance)||0,currency:a.currency||"TRY"}
@@ -219,7 +219,7 @@ $("accountForm").addEventListener("submit",e=>{e.preventDefault();saveAccount()}
 $("addAccountBtn").onclick=openAccount;
 $("accountList").addEventListener("click",e=>{const ed=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");if(ed)editAccount(ed.dataset.edit);if(del)deleteAccount(del.dataset.delete)});
 $("addMemberBtn").onclick=()=>{ $("memberForm").reset();openModal("memberModal") };
-$("memberForm").onsubmit=e=>{e.preventDefault();const n=$("memberName").value.trim();if(n){db.members.push(n);save();closeModal("memberModal");toast("Üye eklendi")}};
+$("memberForm").onsubmit=e=>{e.preventDefault();const n=$("memberName").value.trim();if(!n)return;closeModal("memberModal");try{db.members.push(n);save();toast("Üye eklendi")}catch(err){console.error(err);toast("Üye kaydedilemedi")}};
 $("memberList").addEventListener("click",e=>{const b=e.target.closest("[data-member-delete]");if(!b)return;const i=Number(b.dataset.memberDelete);if(confirm(`"${db.members[i]}" silinsin mi?`)){db.members.splice(i,1);save();toast("Üye silindi")}});
 $("incomeTopBtn").onclick=()=>{$("incomeForm").reset();$("incomeDate").value=today();render();openModal("incomeModal")};
 $("incomeForm").onsubmit=e=>{e.preventDefault();const amount=Number($("incomeAmount").value);const currency=$("incomeCurrency").value;const account=$("incomeAccount").value;if(!amount||!account){toast("Tutar ve hesap gerekli");return}const a=db.accounts.find(x=>x.name===account);db.income.push({amount,currency,source:$("incomeSource").value.trim(),date:$("incomeDate").value,note:$("incomeNote").value.trim(),account});if(a&&a.currency===currency)a.balance+=amount;save();closeModal("incomeModal");toast("Gelir kaydedildi")};
@@ -528,10 +528,36 @@ $("debtList").addEventListener("click",e=>{
 
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
 document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));
-document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tab-section").forEach(x=>x.classList.remove("active"));$(b.dataset.tab).classList.add("active")});
+function activateTab(tab){
+  const target=$(tab); if(!target)return;
+  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
+  document.querySelectorAll(".tab-section").forEach(x=>x.classList.remove("active"));
+  target.classList.add("active");
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+document.querySelectorAll(".bottom-nav button").forEach(b=>{
+  b.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();activateTab(b.dataset.tab)},false);
+});
+// Put the real investment module on the Investments tab instead of leaving a dead placeholder.
+const investmentCard=$('investmentsCard'), investmentHost=$('investmentPageHost');
+if(investmentCard && investmentHost) investmentHost.appendChild(investmentCard);
+// Module shortcuts in More now activate the relevant area.
+$('investmentsModuleBtn')?.addEventListener('click',()=>activateTab('investments'));
+$('vehiclesModuleBtn')?.addEventListener('click',()=>{activateTab('more');setTimeout(()=>$('vehiclesCard')?.scrollIntoView({behavior:'smooth',block:'start'}),50)});
+$('billsModuleBtn')?.addEventListener('click',()=>{activateTab('more');setTimeout(()=>$('billsCard')?.scrollIntoView({behavior:'smooth',block:'start'}),50)});
+$('debtsModuleBtn')?.addEventListener('click',()=>{activateTab('more');setTimeout(()=>$('debtsCard')?.scrollIntoView({behavior:'smooth',block:'start'}),50)});
 
 load();render();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 
 setTimeout(()=>refreshInvestments(),800);
 setInterval(()=>refreshInvestments(),15*60*1000);
+
+
+// v13: reliable modal closing, including iPhone taps.
+document.addEventListener('click',function(e){
+  const close=e.target.closest('[data-close]');
+  if(close){e.preventDefault();e.stopPropagation();closeModal(close.dataset.close);return;}
+  if(e.target.classList && e.target.classList.contains('modal')){closeModal(e.target.id)}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(m=>closeModal(m.id))});

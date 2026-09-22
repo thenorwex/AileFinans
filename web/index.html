@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
 <link rel="manifest" href="manifest.json">
-<title>Aile Finans</title>
+<title>Aile Finans v13</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="topbar">
-  <div><b>Aile Finans</b><span class="muted">v4</span></div>
+  <div><b>Aile Finans</b><span class="muted">v13</span></div>
   <div class="top-actions">
     <button class="secondary-btn" id="incomeTopBtn">+ Gelir</button>
     <button class="primary-btn" id="expenseTopBtn">+</button>
@@ -42,7 +42,7 @@
   <div id="expenseList" class="list"></div>
 </section>
 
-<section id="investments" class="tab-section"><div class="card"><h1>Yatırımlar</h1><p class="muted">Yatırım modülü sonraki aşamada.</p></div></section>
+<section id="investments" class="tab-section"><div id="investmentPageHost"></div></section>
 <section id="reports" class="tab-section"><div class="card"><h1>Raporlar</h1><p class="muted">Raporlama modülü sonraki aşamada.</p></div></section>
 <section id="more" class="tab-section">
   <div class="card">
@@ -80,7 +80,7 @@
 </section>
 </main>
 
-<nav class="bottom-nav">
+<nav class="bottom-nav" id="bottomNav">
   <button data-tab="home" class="active">⌂<span>Ana Sayfa</span></button>
   <button data-tab="expenses">₺<span>Harcamalar</span></button>
   <button data-tab="investments">📈<span>Yatırımlar</span></button>

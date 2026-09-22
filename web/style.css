@@ -9,3 +9,15 @@
 #investmentsCard{margin-top:12px}
 
 #investmentsCard .section-head .actions{display:flex;gap:8px;align-items:center}
+
+/* v12 navigation and modal fixes */
+.bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:1000;pointer-events:auto}
+.bottom-nav button,.bottom-nav a{pointer-events:auto;cursor:pointer;touch-action:manipulation}
+.modal{z-index:2000}
+.modal .modal-box{position:relative;z-index:2001}
+body{padding-bottom:90px}
+
+/* v13 */
+.tab-section{min-height:calc(100vh - 90px)}
+.bottom-nav{touch-action:manipulation;z-index:9999}
+.modal{z-index:10000}
