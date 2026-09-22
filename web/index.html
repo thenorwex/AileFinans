@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <title>AileFinans</title>
+</head>
+<body>
+  <header class="topbar"><div><small>AileFinans</small><h1>Bu Ay</h1></div><button id="addTop">＋</button></header>
+  <main id="app">
+    <section class="hero"><span>Toplam Harcama</span><strong id="total">0,00 TL</strong><div class="hero-sub"><span>İşlem sayısı</span><b id="count">0</b></div></section>
+    <section class="cards"><div><span>Gelir</span><b>0,00 TL</b></div><div><span>Yatırım</span><b>0,00 TL</b></div></section>
+    <div class="section-title"><h2>Son Harcamalar</h2><button id="clear">Temizle</button></div>
+    <div id="list" class="list"></div>
+  </main>
+  <nav class="nav"><button class="active">⌂<span>Ana Sayfa</span></button><button>▣<span>Harcamalar</span></button><button>↗<span>Yatırımlar</span></button><button>▥<span>Raporlar</span></button><button>☰<span>Daha Fazla</span></button></nav>
+  <dialog id="expenseDialog">
+    <form method="dialog" id="expenseForm"><div class="dialog-head"><h2>Harcama Ekle</h2><button type="button" id="close">×</button></div>
+      <label>Tutar<input id="amount" inputmode="decimal" placeholder="0,00" required></label>
+      <label>Para birimi<select id="currency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+      <label>Kategori<select id="category"><option>Market</option><option>Giyim</option><option>Elektronik</option><option>Ev</option><option>Restoran</option><option>Kişisel bakım</option><option>Araç</option><option>Fatura</option><option>Sağlık</option><option>Diğer</option></select></label>
+      <label>Üye<input id="member" placeholder="Sebahattin"></label>
+      <label>Ödeme yöntemi<select id="payment"><option>Nakit</option><option>Banka kartı</option><option>Kredi kartı</option><option>Havale/EFT</option></select></label>
+      <label>Mağaza / yer<input id="merchant" placeholder="Market adı"></label>
+      <label>Açıklama<textarea id="note" rows="2"></textarea></label>
+      <label>Fiş fotoğrafı<input id="photo" type="file" accept="image/*"></label>
+      <button class="save" value="default">Kaydet</button>
+    </form>
+  </dialog>
+<script src="app.js"></script>
+</body>
+</html>
