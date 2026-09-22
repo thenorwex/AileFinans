@@ -85,6 +85,30 @@
   </form>
 </div></div>
 
+<div class="modal" id="incomeModal"><div class="modal-box">
+  <div class="modal-head"><h2>Gelir Ekle</h2><button class="close" data-close="incomeModal">×</button></div>
+  <form id="incomeForm">
+    <label>Tutar<input id="incomeAmount" type="number" step="0.01" min="0" required></label>
+    <label>Para Birimi<select id="incomeCurrency"><option>TRY ₺</option><option>USD $</option><option>EUR €</option><option>GBP £</option></select></label>
+    <label>Gelir Kaynağı<input id="incomeSource" placeholder="Örn. Maaş / Kira / Serentha Villas" required></label>
+    <label>Hesaba aktarılacak hesap<select id="incomeAccount"></select></label>
+    <label>Tarih<input id="incomeDate" type="date" required></label>
+    <label>Açıklama<textarea id="incomeNote" rows="2"></textarea></label>
+    <button class="primary" type="submit">Kaydet</button>
+  </form>
+</div></div>
+
+<div class="modal" id="accountModal"><div class="modal-box">
+  <div class="modal-head"><h2>Hesap / Kart Ekle</h2><button class="close" data-close="accountModal">×</button></div>
+  <form id="accountForm">
+    <label>Ad<input id="accountName" placeholder="Örn. Garanti Bonus" required></label>
+    <label>Tür<select id="accountType"><option>Nakit</option><option>Banka</option><option>Kredi Kartı</option></select></label>
+    <label>Başlangıç bakiyesi<input id="accountBalance" type="number" step="0.01" value="0"></label>
+    <label>Para birimi<select id="accountCurrency"><option>TRY ₺</option><option>USD $</option><option>EUR €</option><option>GBP £</option></select></label>
+    <button class="primary" type="submit">Kaydet</button>
+  </form>
+</div></div>
+
 <div class="modal" id="simpleModal"><div class="modal-box"><div class="modal-head"><h2 id="simpleTitle"></h2><button class="close" data-close="simpleModal">×</button></div><form id="simpleForm"></form></div></div>
 <script src="app.js"></script>
 </body>
