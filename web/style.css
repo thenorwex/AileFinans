@@ -2,3 +2,5 @@
 .account-row{align-items:center}.row-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.row-actions button{font-size:12px;padding:8px}
 
 textarea{width:100%;padding:12px;margin:7px 0;border:1px solid #d1d5db;border-radius:10px;font:inherit;resize:vertical}label{display:block;font-size:12px;color:#6b7280;margin-top:5px}
+
+.expense-row{align-items:center}.expense-row .row-actions{align-items:center}

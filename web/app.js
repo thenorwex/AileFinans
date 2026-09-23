@@ -59,7 +59,10 @@ function render(){
     : `<div class="empty">Henüz üye yok.</div>`;
 
   $("expenseList").innerHTML=db.expenses.length
-    ? db.expenses.slice().reverse().map(x=>`<div class="item"><span>${escapeHtml(x.title)}<br><span class="muted">${escapeHtml(x.member||"")}</span></span><b>${money(x.amount,x.currency||"TRY")}</b></div>`).join("")
+    ? db.expenses.slice().reverse().map(x=>`<div class="item expense-row">
+        <span><b>${escapeHtml(x.title)}</b><br><span class="muted">${escapeHtml(x.member||"")} · ${escapeHtml(x.category||"Diğer")} · ${escapeHtml(x.date||"")}</span></span>
+        <span class="row-actions"><b>${money(x.amount,x.currency||"TRY")}</b><button data-edit-expense="${x.id}">Düzenle</button><button data-delete-expense="${x.id}">Sil</button></span>
+      </div>`).join("")
     : `<div class="empty">Henüz harcama yok.</div>`;
 
   $("investmentList").innerHTML=db.investments.length
@@ -223,6 +226,65 @@ $("addExpense").onclick=()=>{
   $("expenseDate").value=new Date().toISOString().slice(0,10);
   openModal("expenseModal");
 };
+function adjustAccountForExpense(x, direction){
+  const a=db.accounts.find(q=>q.id===x.accountId);
+  if(!a || a.currency!==x.currency)return;
+  a.balance += direction*Number(x.amount||0);
+}
+
+document.addEventListener("click",e=>{
+  const edit=e.target.closest("[data-edit-expense]");
+  if(edit){
+    const x=db.expenses.find(q=>q.id===edit.dataset.editExpense);
+    if(!x)return;
+    $("editExpenseTitle").value=x.title||"";
+    $("editExpenseAmount").value=Number(x.amount)||0;
+    $("editExpenseCurrency").value=x.currency||"TRY";
+    $("editExpenseMember").innerHTML=db.members.map(m=>`<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+    $("editExpenseMember").value=x.member||"";
+    $("editExpenseCategory").innerHTML=db.expenseCategories.map(c=>`<option>${escapeHtml(c)}</option>`).join("");
+    $("editExpenseCategory").value=x.category||"Diğer";
+    $("editExpenseAccount").innerHTML=db.accounts.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
+    $("editExpenseAccount").value=x.accountId||"";
+    $("editExpenseDate").value=x.date||"";
+    $("editExpenseNote").value=x.note||"";
+    $("expenseEditForm").dataset.id=x.id;
+    openModal("expenseEditModal");
+    return;
+  }
+  const del=e.target.closest("[data-delete-expense]");
+  if(del){
+    const x=db.expenses.find(q=>q.id===del.dataset.deleteExpense);
+    if(!x)return;
+    if(!confirm(`"${x.title}" harcaması silinsin mi?`))return;
+    adjustAccountForExpense(x,+1);
+    db.expenses=db.expenses.filter(q=>q.id!==x.id);
+    save(); render();
+  }
+});
+
+$("expenseEditForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const x=db.expenses.find(q=>q.id===$("expenseEditForm").dataset.id);
+  if(!x)return;
+  const old={...x};
+  adjustAccountForExpense(old,+1);
+  const amount=Number($("editExpenseAmount").value);
+  if(!Number.isFinite(amount)||amount<=0)return;
+  x.title=$("editExpenseTitle").value.trim();
+  x.amount=amount;
+  x.currency=$("editExpenseCurrency").value;
+  x.member=$("editExpenseMember").value||"";
+  x.category=$("editExpenseCategory").value||"Diğer";
+  x.accountId=$("editExpenseAccount").value||"";
+  const a=db.accounts.find(q=>q.id===x.accountId);
+  x.payment=a?a.name:"";
+  x.date=$("editExpenseDate").value||new Date().toISOString().slice(0,10);
+  x.note=$("editExpenseNote").value.trim();
+  adjustAccountForExpense(x,-1);
+  save(); closeModal("expenseEditModal"); render();
+});
+
 $("expenseForm").addEventListener("submit",e=>{
   e.preventDefault();
   const title=$("expenseTitle").value.trim();
