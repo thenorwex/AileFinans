@@ -48,6 +48,19 @@ function load(){
   }
 }
 
+function fileToDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    if(!file){resolve("");return}
+    const r=new FileReader();
+    r.onload=()=>resolve(r.result);
+    r.onerror=reject;
+    r.readAsDataURL(file);
+  });
+}
+function photoThumb(x){
+  return x.photo ? `<img class="expense-photo" src="${x.photo}" alt="Harcama fotoğrafı">` : "";
+}
+
 function render(){
   $("memberCount").textContent=db.members.length;
   $("totalBalance").textContent=money(db.accounts.reduce((s,a)=>s+(Number(a.balance)||0),0),"TRY");
@@ -60,7 +73,7 @@ function render(){
 
   $("expenseList").innerHTML=db.expenses.length
     ? db.expenses.slice().reverse().map(x=>`<div class="item expense-row">
-        <span><b>${escapeHtml(x.title)}</b><br><span class="muted">${escapeHtml(x.member||"")} · ${escapeHtml(x.category||"Diğer")} · ${escapeHtml(x.date||"")}</span></span>
+        <span class="expense-main">${photoThumb(x)}<span><b>${escapeHtml(x.title)}</b><br><span class="muted">${escapeHtml(x.member||"")} · ${escapeHtml(x.category||"Diğer")} · ${escapeHtml(x.date||"")}</span></span></span>
         <span class="row-actions"><b>${money(x.amount,x.currency||"TRY")}</b><button data-edit-expense="${x.id}">Düzenle</button><button data-delete-expense="${x.id}">Sil</button></span>
       </div>`).join("")
     : `<div class="empty">Henüz harcama yok.</div>`;
@@ -248,6 +261,7 @@ document.addEventListener("click",e=>{
     $("editExpenseAccount").value=x.accountId||"";
     $("editExpenseDate").value=x.date||"";
     $("editExpenseNote").value=x.note||"";
+    $("editExpensePhoto").value="";
     $("expenseEditForm").dataset.id=x.id;
     openModal("expenseEditModal");
     return;
@@ -263,7 +277,7 @@ document.addEventListener("click",e=>{
   }
 });
 
-$("expenseEditForm").addEventListener("submit",e=>{
+$("expenseEditForm").addEventListener("submit",async e=>{
   e.preventDefault();
   const x=db.expenses.find(q=>q.id===$("expenseEditForm").dataset.id);
   if(!x)return;
@@ -272,7 +286,9 @@ $("expenseEditForm").addEventListener("submit",e=>{
   const amount=Number($("editExpenseAmount").value);
   if(!Number.isFinite(amount)||amount<=0)return;
   x.title=$("editExpenseTitle").value.trim();
+  const newPhoto=await fileToDataUrl($("editExpensePhoto").files[0]);
   x.amount=amount;
+  if(newPhoto)x.photo=newPhoto;
   x.currency=$("editExpenseCurrency").value;
   x.member=$("editExpenseMember").value||"";
   x.category=$("editExpenseCategory").value||"Diğer";
@@ -285,13 +301,14 @@ $("expenseEditForm").addEventListener("submit",e=>{
   save(); closeModal("expenseEditModal"); render();
 });
 
-$("expenseForm").addEventListener("submit",e=>{
+$("expenseForm").addEventListener("submit",async e=>{
   e.preventDefault();
   const title=$("expenseTitle").value.trim();
   const amount=Number($("expenseAmount").value);
   if(!title || !Number.isFinite(amount) || amount<=0)return;
   const accountId=$("expenseAccount").value;
   const account=db.accounts.find(x=>x.id===accountId);
+  const photo=await fileToDataUrl($("expensePhoto").files[0]);
   const currency=$("expenseCurrency").value;
   db.expenses.push({
     id:uid(),
@@ -303,7 +320,8 @@ $("expenseForm").addEventListener("submit",e=>{
     accountId,
     payment:account?account.name:"",
     date:$("expenseDate").value||new Date().toISOString().slice(0,10),
-    note:$("expenseNote").value.trim()
+    note:$("expenseNote").value.trim(),
+    photo
   });
   if(account && account.currency===currency) account.balance-=amount;
   save();
