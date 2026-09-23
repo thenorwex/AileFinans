@@ -36,15 +36,7 @@ body{padding-bottom:90px}
 .bottom-nav{z-index:9999;pointer-events:auto}
 .bottom-nav button{touch-action:manipulation;pointer-events:auto}
 
-/* v20 */
-.bottom-nav{z-index:99999!important;pointer-events:auto!important}
-.bottom-nav button{pointer-events:auto!important;touch-action:manipulation}
-.tab-section{display:none}
-.tab-section.active{display:block}
-
-/* v21 hard guarantees */
+/* v23 */
 .modal[hidden]{display:none!important;visibility:hidden!important;pointer-events:none!important}
 .bottom-nav{z-index:2147483647!important;pointer-events:auto!important}
 .bottom-nav button{pointer-events:auto!important;touch-action:manipulation}
-
-/* v22 data persistence */

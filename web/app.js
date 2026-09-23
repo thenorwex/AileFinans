@@ -1,6 +1,8 @@
+const KEY="ailefinans_data_v23";
+const VERSION_OLD_KEYS=["ailefinans_v12","ailefinans_v11","ailefinans_v10","ailefinans_v9","ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
+const OLD_KEYS=["ailefinans_v3","ailefinans_v2"];
 const $=id=>document.getElementById(id);
 let editAccountId=null;
-let db={members:[],accounts:[],expenses:[],income:[],transfers:[],debts:[],vehicles:[],vehicleReminders:[],vehicleLogs:[],bills:[],investments:[],investmentTransactions:[]};
 
 function uid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now()+"-"+Math.random().toString(16).slice(2)}
 function money(n,c="TRY"){return new Intl.NumberFormat("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(n)||0)+" "+c}
@@ -8,92 +10,53 @@ function today(){return new Date().toISOString().slice(0,10)}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.remove("show"),1800)}
 function openModal(id){const m=$(id);if(!m)return;m.hidden=false;m.setAttribute("aria-hidden","false");m.style.display="";m.classList.add("open")}
 function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open","show","active");m.setAttribute("aria-hidden","true");m.hidden=true;m.style.display="none"}
-
-function normalizeAccount(a){
-  a=a&&typeof a==="object"?a:{};
-  return {id:a.id||uid(),name:String(a.name||"").trim(),type:a.type||"Diğer",balance:Number(a.balance)||0,currency:a.currency||"TRY"};
-}
-const KEY="ailefinans_data_v20";
-const LEGACY_KEYS=["ailefinans_data_v19","ailefinans_data_v18","ailefinans_v17","ailefinans_v16","ailefinans_v15","ailefinans_v14","ailefinans_v13","ailefinans_v12","ailefinans_v11","ailefinans_v10","ailefinans_v9","ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
-
 function save(){
-  try{localStorage.setItem(KEY,JSON.stringify(db));return true}
-  catch(e){console.error(e);toast("Veri kaydedilemedi");return false}
+  try{
+    localStorage.setItem(KEY,JSON.stringify(db));
+    return true;
+  }catch(e){
+    console.error("save failed",e);
+    toast("Kayıt yapılamadı");
+    return false;
+  }
 }
 function load(){
-  // IMPORTANT: once v20 data exists, load that exact database.
-  // Legacy migration is used only when v20 does not exist.
-  try{
-    const current=localStorage.getItem(KEY);
-    if(current){
-      const parsed=JSON.parse(current);
-      if(parsed&&typeof parsed==="object"){
-        db=parsed;
-        db.members=Array.isArray(db.members)?db.members:[];
-        db.accounts=Array.isArray(db.accounts)?db.accounts.map(normalizeAccount):[];
-        db.expenses=Array.isArray(db.expenses)?db.expenses:[];
-        db.income=Array.isArray(db.income)?db.income:[];
-        db.transfers=Array.isArray(db.transfers)?db.transfers:[];
-        db.debts=Array.isArray(db.debts)?db.debts:[];
-        db.vehicles=Array.isArray(db.vehicles)?db.vehicles:[];
-        db.vehicleReminders=Array.isArray(db.vehicleReminders)?db.vehicleReminders:[];
-        db.vehicleLogs=Array.isArray(db.vehicleLogs)?db.vehicleLogs:[];
-        db.bills=Array.isArray(db.bills)?db.bills:[];
-        db.investments=Array.isArray(db.investments)?db.investments:[];
-        db.investmentTransactions=Array.isArray(db.investmentTransactions)?db.investmentTransactions:[];
-        if(!db.accounts.length)db.accounts=[
-          {id:uid(),name:"Nakit",type:"Nakit",balance:0,currency:"TRY"},
-          {id:uid(),name:"Banka Kartı",type:"Banka",balance:0,currency:"TRY"},
-          {id:uid(),name:"Kredi Kartı",type:"Kredi Kartı",balance:0,currency:"TRY"}
-        ];
-        return;
-      }
-    }
-  }catch(e){console.warn("Current database could not be loaded",e)}
-
-  const sources=[];
-  for(const k of LEGACY_KEYS){
-    try{
-      const raw=localStorage.getItem(k);
-      if(raw){const x=JSON.parse(raw);if(x&&typeof x==="object")sources.push(x)}
-    }catch(e){}
-  }
-  const unique=(name)=>{
-    const out=[],seen=new Set();
-    for(const s of sources){
-      for(const item of (Array.isArray(s[name])?s[name]:[])){
-        const id=item?.id!=null?String(item.id):JSON.stringify(item);
-        if(!seen.has(id)){seen.add(id);out.push(item)}
-      }
-    }
-    return out;
-  };
-  const members=[],memberSeen=new Set();
-  for(const s of sources){
-    for(const item of (Array.isArray(s.members)?s.members:[])){
-      const name=typeof item==="string"?item.trim():String(item?.name||"").trim();
-      if(name&&!memberSeen.has(name)){memberSeen.add(name);members.push(name)}
+  let raw=null;
+  try{raw=localStorage.getItem(KEY)}catch(e){}
+  if(!raw){
+    for(const k of VERSION_OLD_KEYS){
+      try{
+        const x=localStorage.getItem(k);
+        if(x){raw=x;break}
+      }catch(e){}
     }
   }
+  let x={};
+  try{x=raw?JSON.parse(raw):{}}catch(e){x={}}
   db={
-    members:members.length?members:["Sebahattin","Eşim"],
-    accounts:unique("accounts").map(normalizeAccount),
-    expenses:unique("expenses"),income:unique("income"),transfers:unique("transfers"),
-    debts:unique("debts"),vehicles:unique("vehicles"),vehicleReminders:unique("vehicleReminders"),
-    vehicleLogs:unique("vehicleLogs"),bills:unique("bills"),investments:unique("investments"),
-    investmentTransactions:unique("investmentTransactions")
+    members:Array.isArray(x.members)&&x.members.length?x.members.map(String):["Sebahattin","Eşim"],
+    accounts:Array.isArray(x.accounts)?x.accounts.map(normalizeAccount):[],
+    expenses:Array.isArray(x.expenses)?x.expenses:[],
+    income:Array.isArray(x.income)?x.income:[],
+    transfers:Array.isArray(x.transfers)?x.transfers:[],
+    debts:Array.isArray(x.debts)?x.debts:[],
+    vehicles:Array.isArray(x.vehicles)?x.vehicles:[],
+    vehicleReminders:Array.isArray(x.vehicleReminders)?x.vehicleReminders:[],
+    vehicleLogs:Array.isArray(x.vehicleLogs)?x.vehicleLogs:[],
+    bills:Array.isArray(x.bills)?x.bills:[],
+    investments:Array.isArray(x.investments)?x.investments:[],
+    investmentTransactions:Array.isArray(x.investmentTransactions)?x.investmentTransactions:[]
   };
-  db.debts=db.debts.map(x=>({...x,id:x.id||uid(),type:x.type||"debt",paid:Number(x.paid)||0,payments:Array.isArray(x.payments)?x.payments:[]}));
-  db.income=db.income.map(x=>({...x,id:x.id||uid(),type:"income"}));
-  db.expenses=db.expenses.map(x=>({...x,id:x.id||uid(),type:"expense"}));
-  db.transfers=db.transfers.map(x=>({...x,id:x.id||uid(),type:"transfer"}));
-  if(!db.accounts.length)db.accounts=[
-    {id:uid(),name:"Nakit",type:"Nakit",balance:0,currency:"TRY"},
-    {id:uid(),name:"Banka Kartı",type:"Banka",balance:0,currency:"TRY"},
-    {id:uid(),name:"Kredi Kartı",type:"Kredi Kartı",balance:0,currency:"TRY"}
-  ];
-  try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}
+  if(!db.accounts.length){
+    db.accounts=[
+      {id:uid(),name:"Nakit",type:"Nakit",balance:0,currency:"TRY"},
+      {id:uid(),name:"Banka Kartı",type:"Banka",balance:0,currency:"TRY"},
+      {id:uid(),name:"Kredi Kartı",type:"Kredi Kartı",balance:0,currency:"TRY"}
+    ];
+  }
+  save();
 }
+let db={members:[],accounts:[],expenses:[],income:[],transfers:[],debts:[],vehicles:[]};
 let vehicleFilter=null;
 let billFilter="all";
 let investmentFilter="all";
@@ -244,7 +207,7 @@ function saveAccount(){
   const type=$("accountType").value;
   const balance=Number($("accountBalance").value)||0;
   const currency=$("accountCurrency").value;
-  if(!name){toast("Hesap adı gerekli");$("accountName").focus();return false}
+  if(!name){toast("Hesap adı gerekli");return false;}
 
   if(editAccountId){
     const a=db.accounts.find(x=>x.id===editAccountId);
@@ -257,18 +220,9 @@ function saveAccount(){
     db.accounts.push({id:uid(),name,type,balance,currency});
   }
 
-  // Close the modal BEFORE render, and do it directly as well as through closeModal.
-  const modal=$("accountModal");
-  if(modal){
-    modal.classList.remove("open","show","active");
-    modal.setAttribute("aria-hidden","true");
-    modal.hidden=true;
-    modal.style.display="none";
-  }
-  $("accountForm").reset();
-  editAccountId=null;
-
   if(!save())return false;
+  editAccountId=null;
+  closeModal("accountModal");
   render();
   toast("Hesap kaydedildi");
   return true;
@@ -604,19 +558,21 @@ $("debtList").addEventListener("click",e=>{
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
 document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));
 function activateTab(tab){
-  const target=document.getElementById(tab);
+  const target=$(tab);
   if(!target)return false;
   document.querySelectorAll(".tab-section").forEach(x=>x.classList.remove("active"));
   target.classList.add("active");
-  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
+  document.querySelectorAll(".bottom-nav button[data-tab]").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
+  window.scrollTo(0,0);
   return true;
 }
-document.addEventListener("click",function(e){
-  const btn=e.target.closest(".bottom-nav button[data-tab]");
-  if(!btn)return;
-  e.preventDefault();
-  e.stopPropagation();
-  activateTab(btn.dataset.tab);
+document.addEventListener("click",e=>{
+  const b=e.target.closest(".bottom-nav button[data-tab]");
+  if(b){
+    e.preventDefault();
+    e.stopPropagation();
+    activateTab(b.dataset.tab);
+  }
 },true);
 // Put the real investment module on the Investments tab instead of leaving a dead placeholder.
 const investmentCard=$('investmentsCard'), investmentHost=$('investmentPageHost');
@@ -633,15 +589,73 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 setTimeout(()=>refreshInvestments(),800);
 setInterval(()=>refreshInvestments(),15*60*1000);
 
+/* Aile Finans v16: single-source navigation and modal lifecycle */
+function activateTab(tab){
+  const target=$(tab);
+  if(!target)return false;
+  document.querySelectorAll(".tab-section").forEach(x=>x.classList.remove("active"));
+  target.classList.add("active");
+  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
+  window.scrollTo(0,0);
+  return true;
+}
 
+document.querySelectorAll(".bottom-nav button[data-tab]").forEach(btn=>{
+  btn.addEventListener("click",function(e){
+    e.preventDefault();
+    activateTab(this.dataset.tab);
+  });
+});
 
-$("accountForm").addEventListener("submit",function(e){
+// The investment card lives inside the Investments tab, not the More tab.
+const investmentCardV16=$("investmentsCard"), investmentHostV16=$("investmentPageHost");
+if(investmentCardV16 && investmentHostV16 && !investmentHostV16.contains(investmentCardV16)){
+  investmentHostV16.appendChild(investmentCardV16);
+}
+
+// Module shortcuts.
+$("investmentsModuleBtn")?.addEventListener("click",()=>activateTab("investments"));
+$("vehiclesModuleBtn")?.addEventListener("click",()=>{
+  activateTab("more");
+  setTimeout(()=>$("vehiclesCard")?.scrollIntoView({behavior:"smooth",block:"start"}),30);
+});
+$("billsModuleBtn")?.addEventListener("click",()=>{
+  activateTab("more");
+  setTimeout(()=>$("billsCard")?.scrollIntoView({behavior:"smooth",block:"start"}),30);
+});
+$("debtsModuleBtn")?.addEventListener("click",()=>{
+  activateTab("more");
+  setTimeout(()=>$("debtsCard")?.scrollIntoView({behavior:"smooth",block:"start"}),30);
+});
+
+// One and only one modal closer. No capture-phase navigation hacks.
+document.addEventListener("click",function(e){
+  const close=e.target.closest("[data-close]");
+  if(close){
+    e.preventDefault();
+    closeModal(close.dataset.close);
+    return;
+  }
+  const modal=e.target.closest(".modal");
+  if(modal && e.target===modal)closeModal(modal.id);
+});
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape")document.querySelectorAll(".modal").forEach(m=>closeModal(m.id));
+});
+
+// Explicitly close account modal after a successful submit, regardless of render errors.
+
+load();
+render();
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-close]");
+  if(b)closeModal(b.dataset.close);
+},true);
+
+$("accountForm").addEventListener("submit",e=>{
   e.preventDefault();
   e.stopPropagation();
   saveAccount();
 });
-
-document.addEventListener("click",function(e){
-  const close=e.target.closest("[data-close]");
-  if(close)closeModal(close.dataset.close);
-},true);
