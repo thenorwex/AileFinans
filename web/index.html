@@ -107,6 +107,24 @@
   </div>
 </div>
 
+<div class="modal" id="vehicleModal" hidden>
+  <div class="modalbox"><h3>Araç Ekle</h3>
+    <form id="vehicleForm">
+      <input id="vehicleName" required placeholder="Araç adı (örn. Skoda Scala)">
+      <input id="vehiclePlate" placeholder="Plaka">
+      <input id="vehicleKm" type="number" min="0" step="1" placeholder="Güncel kilometre">
+      <input id="vehicleFuel" placeholder="Yakıt türü (örn. Benzin)">
+      <div class="row"><button type="button" data-close="vehicleModal">İptal</button><button class="primary" type="submit">Kaydet</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="vehicleListModal" hidden>
+  <div class="modalbox"><h3>Araçlar</h3><div id="vehicleList"></div>
+    <div class="row"><button data-close="vehicleListModal">Kapat</button><button class="primary" id="vehicleAddBtn">+ Araç</button></div>
+  </div>
+</div>
+
 <div class="modal" id="expenseModal" hidden>
   <div class="modalbox"><h3>Harcama Ekle</h3>
     <form id="expenseForm">

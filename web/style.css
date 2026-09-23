@@ -7,3 +7,5 @@ textarea{width:100%;padding:12px;margin:7px 0;border:1px solid #d1d5db;border-ra
 
 .expense-main{display:flex;align-items:center;gap:9px}
 .expense-photo{width:42px;height:42px;object-fit:cover;border-radius:8px;border:1px solid #ddd;flex:none}
+
+.vehicle-km{font-weight:600}.item .row-actions{flex:none}

@@ -43,6 +43,7 @@ function load(){
     }catch(e){}
   }
   if(!Array.isArray(db.expenseCategories)||!db.expenseCategories.length)db.expenseCategories=["Market","Yakıt","Fatura","Sağlık","Kira","Alışveriş","Restoran","Eğitim","Diğer"];
+  if(!Array.isArray(db.vehicles))db.vehicles=[];
   for(const k of ["members","accounts","expenses","investments","vehicles","bills"]){
     if(!Array.isArray(db[k]))db[k]=[];
   }
@@ -82,7 +83,7 @@ function render(){
     ? db.investments.slice().reverse().map(x=>`<div class="item"><span>${escapeHtml(x.name)}</span><b>${money(x.amount,x.currency||"TRY")}</b></div>`).join("")
     : `<div class="empty">Henüz yatırım yok.</div>`;
 
-  $("reportText").innerHTML=`<b>${db.members.length}</b> üye, <b>${db.accounts.length}</b> hesap/kart, <b>${db.expenses.length}</b> harcama ve <b>${db.investments.length}</b> yatırım kaydı var.`;
+  $("reportText").innerHTML=`<b>${db.members.length}</b> üye, <b>${db.accounts.length}</b> hesap/kart, <b>${db.expenses.length}</b> harcama, <b>${db.investments.length}</b> yatırım ve <b>${db.vehicles.length}</b> araç kaydı var.`;
 }
 
 function escapeHtml(v){
@@ -229,7 +230,45 @@ $("accountEditForm").addEventListener("submit",e=>{
   showAccounts();
 });
 
-$("openVehicles").onclick=()=>{page("more");alert("Araç modülü bir sonraki aşamada bağlanacak.")};
+function showVehicles(){
+  $("vehicleList").innerHTML=db.vehicles.length
+    ? db.vehicles.map(v=>`<div class="item">
+        <span><b>${escapeHtml(v.name)}</b><br><span class="muted">${escapeHtml(v.plate||"Plaka yok")} · ${Number(v.km||0).toLocaleString("tr-TR")} km · ${escapeHtml(v.fuel||"")}</span></span>
+        <span class="row-actions"><button data-delete-vehicle="${v.id}">Sil</button></span>
+      </div>`).join("")
+    : `<div class="empty">Henüz araç eklenmedi.</div>`;
+  openModal("vehicleListModal");
+}
+$("openVehicles").onclick=showVehicles;
+$("vehicleAddBtn").onclick=()=>{closeModal("vehicleListModal");openModal("vehicleModal")};
+
+$("vehicleForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const name=$("vehicleName").value.trim();
+  if(!name)return;
+  db.vehicles.push({
+    id:uid(),
+    name,
+    plate:$("vehiclePlate").value.trim(),
+    km:Number($("vehicleKm").value)||0,
+    fuel:$("vehicleFuel").value.trim()
+  });
+  save();
+  $("vehicleForm").reset();
+  closeModal("vehicleModal");
+  render();
+  showVehicles();
+});
+
+document.addEventListener("click",e=>{
+  const del=e.target.closest("[data-delete-vehicle]");
+  if(!del)return;
+  const v=db.vehicles.find(x=>x.id===del.dataset.deleteVehicle);
+  if(!v)return;
+  if(!confirm(`"${v.name}" aracı silinsin mi?`))return;
+  db.vehicles=db.vehicles.filter(x=>x.id!==v.id);
+  save();render();showVehicles();
+});
 $("openBills").onclick=()=>{page("more");alert("Fatura modülü bir sonraki aşamada bağlanacak.")};
 $("addExpense").onclick=()=>{
   const m=$("expenseMember");
