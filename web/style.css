@@ -8,3 +8,36 @@
 .menu-fab{position:fixed;left:18px;top:82px;z-index:18000;width:46px;height:46px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);box-shadow:0 8px 24px #0002;font-size:22px;display:grid;place-items:center}
 .menu-fab:hover{transform:translateY(-1px)}
 @media(max-width:850px){.menu-fab{top:78px;left:12px}}
+
+/* v46 iPhone/mobile layout */
+#menuToggle{position:fixed!important;left:14px!important;top:14px!important;z-index:20001!important;margin:0!important}
+.topbar{padding-left:68px!important}
+@media(max-width:850px){
+  body{font-size:16px;-webkit-text-size-adjust:100%;padding-bottom:env(safe-area-inset-bottom)}
+  .topbar{min-height:64px!important;padding-top:env(safe-area-inset-top)!important;padding-left:66px!important;padding-right:12px!important}
+  .page,.content,.main-content{padding-left:12px!important;padding-right:12px!important}
+  .card,.panel{border-radius:16px!important}
+  input,select,textarea,button,.btn{min-height:44px;font-size:16px!important}
+  .modal-content{width:calc(100vw - 24px)!important;max-height:calc(100dvh - 32px)!important;overflow:auto!important}
+  .table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important}
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  .grid-2,.form-grid,.report-grid{grid-template-columns:1fr!important}
+  .history-event{padding:12px 0!important;line-height:1.45!important}
+  .history-event b{display:block!important;margin-bottom:4px!important}
+  .archive-item,.archive-row,.monthly-archive-item{min-height:54px!important;display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:8px!important;line-height:1.35!important}
+  .archive-item>*,.archive-row>*{white-space:normal!important;word-break:break-word!important}
+  .menu-fab{display:none!important}
+}
+.safe-area{padding-bottom:env(safe-area-inset-bottom)}
+
+.monthly-archive,.archive-list,.monthlyArchive{display:flex;flex-direction:column;gap:10px}
+.monthly-archive .archive-item,.archive-list .archive-item,.monthlyArchive .archive-item{
+  display:grid;grid-template-columns:minmax(110px,1fr) auto auto;gap:12px;align-items:center;
+  min-height:52px;line-height:1.4;overflow:hidden
+}
+.monthly-archive .archive-item *,.archive-list .archive-item *,.monthlyArchive .archive-item *{min-width:0;overflow-wrap:anywhere}
+@media(max-width:850px){
+ .monthly-archive .archive-item,.archive-list .archive-item,.monthlyArchive .archive-item{
+   grid-template-columns:1fr;gap:4px;padding:12px;border:1px solid var(--line);border-radius:12px
+ }
+}
