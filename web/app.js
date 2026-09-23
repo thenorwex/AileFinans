@@ -1,5 +1,6 @@
 const $=id=>document.getElementById(id);
 let editAccountId=null;
+let db={members:[],accounts:[],expenses:[],income:[],transfers:[],debts:[],vehicles:[],vehicleReminders:[],vehicleLogs:[],bills:[],investments:[],investmentTransactions:[]};
 
 function uid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now()+"-"+Math.random().toString(16).slice(2)}
 function money(n,c="TRY"){return new Intl.NumberFormat("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(n)||0)+" "+c}
@@ -209,21 +210,38 @@ function editAccount(id){
   editAccountId=id;$("accountId").value=id;$("accountName").value=a.name;$("accountType").value=a.type;$("accountBalance").value=a.balance;$("accountCurrency").value=a.currency;$("accountModalTitle").textContent="Hesap / Kart Düzenle";openModal("accountModal");
 }
 function saveAccount(){
-  const name=$("accountName").value.trim(),type=$("accountType").value,balance=Number($("accountBalance").value)||0,currency=$("accountCurrency").value;
-  if(!name){toast("Hesap adı gerekli");$("accountName").focus();return}
+  const name=$("accountName").value.trim();
+  const type=$("accountType").value;
+  const balance=Number($("accountBalance").value)||0;
+  const currency=$("accountCurrency").value;
+  if(!name){toast("Hesap adı gerekli");$("accountName").focus();return false}
+
   if(editAccountId){
-    const a=db.accounts.find(x=>x.id===editAccountId);const old=a.name;
+    const a=db.accounts.find(x=>x.id===editAccountId);
+    if(!a)return false;
+    const old=a.name;
     a.name=name;a.type=type;a.balance=balance;a.currency=currency;
-    db.expenses.forEach(x=>{if(x.payment===old)x.payment=name});db.income.forEach(x=>{if(x.account===old)x.account=name});
-    closeModal("accountModal");
-    try{save();toast("Hesap güncellendi")}catch(err){console.error(err);toast("Hesap kaydedildi ancak ekran yenilenemedi")}
+    db.expenses.forEach(x=>{if(x.payment===old)x.payment=name});
+    db.income.forEach(x=>{if(x.account===old)x.account=name});
   }else{
     db.accounts.push({id:uid(),name,type,balance,currency});
-    closeModal("accountModal");
-    save();
-    render();
-    toast("Hesap kaydedildi");
   }
+
+  // Close the modal BEFORE render, and do it directly as well as through closeModal.
+  const modal=$("accountModal");
+  if(modal){
+    modal.classList.remove("open","show","active");
+    modal.setAttribute("aria-hidden","true");
+    modal.hidden=true;
+    modal.style.display="none";
+  }
+  $("accountForm").reset();
+  editAccountId=null;
+
+  if(!save())return false;
+  render();
+  toast("Hesap kaydedildi");
+  return true;
 }
 function deleteAccount(id){
   const a=db.accounts.find(x=>x.id===id);if(!a)return;
@@ -236,7 +254,17 @@ function deleteAccount(id){
 $("addAccountBtn").onclick=openAccount;
 $("accountList").addEventListener("click",e=>{const ed=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");if(ed)editAccount(ed.dataset.edit);if(del)deleteAccount(del.dataset.delete)});
 $("addMemberBtn").onclick=()=>{ $("memberForm").reset();openModal("memberModal") };
-$("memberForm").onsubmit=e=>{e.preventDefault();const n=$("memberName").value.trim();if(!n)return;closeModal("memberModal");try{db.members.push(n);save();toast("Üye eklendi")}catch(err){console.error(err);toast("Üye kaydedilemedi")}};
+$("memberForm").onsubmit=e=>{
+  e.preventDefault();
+  const n=$("memberName").value.trim();
+  if(!n)return;
+  db.members.push(n);
+  if(!save())return;
+  closeModal("memberModal");
+  $("memberForm").reset();
+  render();
+  toast("Üye eklendi");
+};
 $("memberList").addEventListener("click",e=>{const b=e.target.closest("[data-member-delete]");if(!b)return;const i=Number(b.dataset.memberDelete);if(confirm(`"${db.members[i]}" silinsin mi?`)){db.members.splice(i,1);save();toast("Üye silindi")}});
 $("incomeTopBtn").onclick=()=>{$("incomeForm").reset();$("incomeDate").value=today();render();openModal("incomeModal")};
 $("incomeForm").onsubmit=e=>{e.preventDefault();const amount=Number($("incomeAmount").value);const currency=$("incomeCurrency").value;const account=$("incomeAccount").value;if(!amount||!account){toast("Tutar ve hesap gerekli");return}const a=db.accounts.find(x=>x.name===account);db.income.push({amount,currency,source:$("incomeSource").value.trim(),date:$("incomeDate").value,note:$("incomeNote").value.trim(),account});if(a&&a.currency===currency)a.balance+=amount;save();closeModal("incomeModal");toast("Gelir kaydedildi")};
@@ -546,15 +574,20 @@ $("debtList").addEventListener("click",e=>{
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
 document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));
 function activateTab(tab){
-  const target=$(tab); if(!target)return;
-  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
+  const target=document.getElementById(tab);
+  if(!target)return false;
   document.querySelectorAll(".tab-section").forEach(x=>x.classList.remove("active"));
   target.classList.add("active");
-  window.scrollTo({top:0,behavior:"smooth"});
+  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
+  return true;
 }
-document.querySelectorAll(".bottom-nav button").forEach(b=>{
-  b.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();activateTab(b.dataset.tab)},false);
-});
+document.addEventListener("click",function(e){
+  const btn=e.target.closest(".bottom-nav button[data-tab]");
+  if(!btn)return;
+  e.preventDefault();
+  e.stopPropagation();
+  activateTab(btn.dataset.tab);
+},true);
 // Put the real investment module on the Investments tab instead of leaving a dead placeholder.
 const investmentCard=$('investmentsCard'), investmentHost=$('investmentPageHost');
 if(investmentCard && investmentHost) investmentHost.appendChild(investmentCard);
@@ -571,7 +604,14 @@ setTimeout(()=>refreshInvestments(),800);
 setInterval(()=>refreshInvestments(),15*60*1000);
 
 
+
 $("accountForm").addEventListener("submit",function(e){
   e.preventDefault();
+  e.stopPropagation();
   saveAccount();
 });
+
+document.addEventListener("click",function(e){
+  const close=e.target.closest("[data-close]");
+  if(close)closeModal(close.dataset.close);
+},true);

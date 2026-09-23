@@ -41,3 +41,8 @@ body{padding-bottom:90px}
 .bottom-nav button{pointer-events:auto!important;touch-action:manipulation}
 .tab-section{display:none}
 .tab-section.active{display:block}
+
+/* v21 hard guarantees */
+.modal[hidden]{display:none!important;visibility:hidden!important;pointer-events:none!important}
+.bottom-nav{z-index:2147483647!important;pointer-events:auto!important}
+.bottom-nav button{pointer-events:auto!important;touch-action:manipulation}
