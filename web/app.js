@@ -79,8 +79,10 @@ function investmentCard(x){
   const diff=value==null?null:value-cost;
   const c=investmentCurrency(x);
   const change=diff==null?"":`<span class="${diff>=0?"gain":"loss"}">${diff>=0?"+":""}${money(diff,c)}</span>`;
-  const status=x.liveUpdatedAt?`<span class="live-dot"></span> Güncellendi ${new Date(x.liveUpdatedAt).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}`:`<span class="muted">Fiyat bekleniyor</span>`;
-  return `<div class="item investment-card"><span><b>${escapeHtml(x.name)}</b><br><span class="muted">${investmentTypeLabel[x.type]||"Diğer"} · ${qty}${x.type==="gold"?" g":""}</span><br><small class="live-status">${status}</small></span><span class="investment-value"><b>${value==null?"—":money(value,c)}</b><br>${change}</span></div>`;
+  const status=x.manualPriceAt?`<span class="live-dot"></span> Manuel ${new Date(x.manualPriceAt).toLocaleDateString("tr-TR")}`:x.liveUpdatedAt?`<span class="live-dot"></span> Güncellendi ${new Date(x.liveUpdatedAt).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}`:`<span class="muted">Fiyat bekleniyor</span>`;
+  const history=Array.isArray(x.priceHistory)?x.priceHistory.slice(-3).reverse():[];
+  const historyHtml=history.length?`<div class="price-history">${history.map(h=>`<small>${escapeHtml(h.date)} · ${money(Number(h.price)||0,c)}${h.note?` · ${escapeHtml(h.note)}`:""}</small>`).join("")}</div>`:"";
+  return `<div class="item investment-card"><span><b>${escapeHtml(x.name)}</b><br><span class="muted">${investmentTypeLabel[x.type]||"Diğer"} · ${qty}${x.type==="gold"?" g":""}</span><br><small class="live-status">${status}${history.length?` · ${x.priceHistory.length} kayıt`:""}</small>${historyHtml}</span><span class="investment-value"><b>${value==null?"—":money(value,c)}</b><br>${change}<br><button data-manual-price="${x.id}">Fiyat Gir</button></span></div>`;
 }
 function withCacheBust(url){
   const sep=url.includes("?")?"&":"?";
@@ -353,6 +355,7 @@ function renderBillSummary(){
 }
 
 function render(){
+  renderTodayHistory();
   renderBills();renderBillSummary();
   if($("memberCount"))$("memberCount").textContent=db.members.length;
   $("totalBalance").textContent=money(db.accounts.reduce((s,a)=>s+(Number(a.balance)||0),0),"TRY");
@@ -654,7 +657,11 @@ function openVehicle(v){
   const docs=db.vehicleDocuments.filter(x=>x.vehicleId===v.id).sort((a,b)=>a.expiry.localeCompare(b.expiry));
   const fuelCost=fuels.reduce((s,x)=>s+Number(x.total||0),0), serviceCost=services.reduce((s,x)=>s+Number(x.cost||0),0);
   $("vehicleDetailTitle").textContent=v.name;
-  $("vehicleDetailSummary").innerHTML=`<b>${escapeHtml(v.name)}</b><br>${escapeHtml(v.plate||"")} · ${vehicleKm(v).toLocaleString("tr-TR")} km<br>Yakıt: ${money(fuelCost,"TRY")} · Bakım: ${money(serviceCost,"TRY")}`;
+  const fuelLiters=fuels.reduce((s,x)=>s+(Number(x.liters)||0),0);
+  const lastFuel=fuels[0];
+  const avgFuelPrice=fuelLiters?fuelCost/fuelLiters:0;
+  const nextService=services.map(x=>Number(x.nextKm)||0).filter(Boolean).sort((a,b)=>a-b)[0]||0;
+  $("vehicleDetailSummary").innerHTML=`<div class="vehicle-summary-grid"><div><small>Araç</small><b>${escapeHtml(v.name)}</b><span>${escapeHtml(v.plate||"Plaka yok")}</span></div><div><small>Kilometre</small><b>${vehicleKm(v).toLocaleString("tr-TR")} km</b><span>${nextService?`Sonraki bakım: ${nextService.toLocaleString("tr-TR")} km`:"Bakım planı yok"}</span></div><div><small>Yakıt</small><b>${money(fuelCost,"TRY")}</b><span>${fuelLiters.toFixed(1)} L · ort. ${avgFuelPrice?money(avgFuelPrice,"TRY/L"):"-"}</span></div><div><small>Bakım</small><b>${money(serviceCost,"TRY")}</b><span>${services.length} kayıt${lastFuel?` · son yakıt ${lastFuel.date}`:""}</span></div></div>`;
   $("vehicleHistory").innerHTML=(fuels.map(x=>`<div class="item"><span>⛽ ${x.liters} L · ${x.date} · ${x.km.toLocaleString("tr-TR")} km</span><b>${money(x.total,"TRY")}</b></div>`).join("")+
     services.map(x=>`<div class="item"><span>🔧 ${escapeHtml(x.title)} · ${x.date} · ${(Number(x.km)||0).toLocaleString("tr-TR")} km</span><b>${money(x.cost||0,"TRY")}</b></div>`).join("")+
     docs.map(x=>`<div class="item"><span>📄 ${escapeHtml(x.type)} · ${x.date} → ${x.expiry}</span><b>${money(x.cost||0,"TRY")}</b></div>`).join("")||'<div class="empty">Henüz kayıt yok.</div>');
@@ -711,7 +718,6 @@ document.addEventListener("click",e=>{
   db.vehicles=db.vehicles.filter(x=>x.id!==v.id);
   save();render();showVehicles();
 });
-$("openBills").onclick=()=>{page("more");alert("Fatura modülü bir sonraki aşamada bağlanacak.")};
 $("addExpense").onclick=()=>{
   const m=$("expenseMember");
   m.innerHTML=db.members.map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("");
@@ -822,23 +828,49 @@ $("investmentForm").addEventListener("submit",e=>{
 if($("refreshInvestments"))$("refreshInvestments").onclick=()=>{ $("status").textContent="Güncelleniyor..."; updateInvestments(); };
 
 
+// Investment type helper
+const invType=$("investmentType");
+if(invType){
+  const updateInvestmentHelp=()=>{
+    const t=invType.value,el=$("investmentHelp");if(!el)return;
+    el.textContent=t==="gold"?"Kod gerekmez · gram altın":t==="currency"?"Örn: USD/TRY veya USD":t==="crypto"?"CoinGecko ID: bitcoin, ethereum, tether":t==="stock"?"Borsa sembolü: AAPL, MSFT, THYAO.IS vb.":"Fon/borsa sembolü";
+  };
+  invType.addEventListener("change",updateInvestmentHelp);updateInvestmentHelp();
+}
+// Manual investment price history
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-manual-price]");if(!b)return;
+  const x=(db.investments||[]).find(i=>i.id===b.dataset.manualPrice);if(!x)return;
+  $("manualPriceId").value=x.id;$("manualPriceValue").value=x.livePrice||x.buyPrice||"";
+  $("manualPriceDate").value=today();$("manualPriceNote").value="";openModal("manualPriceModal");
+});
+if($("manualPriceForm"))$("manualPriceForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const x=(db.investments||[]).find(i=>i.id===$("manualPriceId").value),p=Number($("manualPriceValue").value);
+  if(!x||!(p>0))return;
+  x.priceHistory=Array.isArray(x.priceHistory)?x.priceHistory:[];
+  x.priceHistory.push({id:uid(),price:p,date:$("manualPriceDate").value||today(),note:$("manualPriceNote").value.trim()});
+  x.livePrice=p;x.manualPriceAt=new Date(($("manualPriceDate").value||today())+"T12:00:00").toISOString();x.liveUpdatedAt=0;
+  save();closeModal("manualPriceModal");render();
+});
+// Bills
+if($("billForm"))$("billForm").addEventListener("submit",e=>{
+  e.preventDefault();const id=$("billId").value||uid(),old=db.bills.findIndex(x=>x.id===id);
+  const item={id,name:$("billName").value.trim(),category:$("billCategory").value,amount:Number($("billAmount").value)||0,currency:$("billCurrency").value||"TRY",dueDate:$("billDueDate").value,recurring:$("billRecurring").checked,period:$("billPeriod").value,paid:old>=0?!!db.bills[old].paid:false};
+  if(old>=0)db.bills[old]=item;else db.bills.push(item);save();closeModal("billModal");render();
+});
+if($("addBill"))$("addBill").onclick=()=>{$("billId").value="";$("billForm").reset();$("billCurrency").value="TRY";$("billPeriod").value="monthly";openModal("billModal")};
+// Today's historical notes
+const historicalEvents={"01-01":["Yeni yılın ilk günü."],"02-04":["Dünya Kanser Günü."],"02-14":["Sevgililer Günü."],"02-21":["Uluslararası Anadil Günü."],"03-08":["Dünya Kadınlar Günü."],"03-18":["Çanakkale Deniz Zaferi ve Şehitleri Anma Günü."],"03-21":["Nevruz."],"04-23":["Türkiye'de Ulusal Egemenlik ve Çocuk Bayramı."],"05-01":["Emek ve Dayanışma Günü."],"05-19":["Atatürk'ü Anma, Gençlik ve Spor Bayramı."],"06-05":["Dünya Çevre Günü."],"07-15":["Demokrasi ve Millî Birlik Günü."],"08-30":["Zafer Bayramı."],"09-23":["Ekinoks dönemi: Kuzey Yarımküre'de sonbahar başlangıcı civarı."],"10-29":["Cumhuriyet Bayramı."],"11-10":["Türkiye'de Mustafa Kemal Atatürk'ü anma günü."],"11-20":["Dünya Çocuk Hakları Günü."],"12-03":["Dünya Engelliler Günü."],"12-10":["İnsan Hakları Günü."]};
+function renderTodayHistory(){
+  const box=$("todayHistory");if(!box)return;const d=new Date(),key=String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const events=historicalEvents[key]||["Bugün için uygulamadaki kısa tarih notu bulunmuyor.","Takvimde yeni bir gün. İnsanlık hâlâ günleri sayıyor, teknoloji şimdilik ilerliyor."];
+  if($("todayHistoryTitle"))$("todayHistoryTitle").textContent=`${d.toLocaleDateString("tr-TR",{day:"numeric",month:"long"})} · Bugünün Tarihi`;
+  box.innerHTML=events.map((x,i)=>`<div class="history-event"><span>${i?"•":"📅"}</span><div>${escapeHtml(x)}</div></div>`).join("");
+}
+
 load();
 applyTheme();
 render();
 startInvestmentRefresh();
 })();
-const invType=$("investmentType");
-if(invType){
-  const updateInvestmentHelp=()=>{
-    const t=invType.value, el=$("investmentHelp");
-    if(!el)return;
-    el.textContent=t==="gold"?"Kod gerekmez · gram altın":t==="currency"?"Örn: USD/TRY veya USD":"";
-    if(t==="crypto")el.textContent="CoinGecko ID kullan: bitcoin, ethereum, tether";
-    if(t==="stock")el.textContent="Borsa sembolü: AAPL, MSFT, THYAO.IS vb.";
-    if(t==="fund")el.textContent="Fon/borsa sembolü veri kaynağına uygun olmalı.";
-  };
-  invType.addEventListener("change",updateInvestmentHelp);updateInvestmentHelp();
-}
-
-if($("billForm"))$("billForm").addEventListener("submit",e=>{e.preventDefault();const id=$("billId").value||uid(),old=db.bills.findIndex(x=>x.id===id);const item={id,name:$("billName").value.trim(),category:$("billCategory").value,amount:Number($("billAmount").value)||0,currency:$("billCurrency").value||"TRY",dueDate:$("billDueDate").value,recurring:$("billRecurring").checked,period:$("billPeriod").value,paid:old>=0?!!db.bills[old].paid:false};if(old>=0)db.bills[old]=item;else db.bills.push(item);save();closeModal("billModal");render()});
-if($("addBill"))$("addBill").onclick=()=>{$("billId").value="";$("billForm").reset();$("billCurrency").value="TRY";$("billPeriod").value="monthly";openModal("billModal")};

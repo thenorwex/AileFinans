@@ -1,2 +1,7 @@
 
 .status-pill{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700}.status-pill.paid{background:#dff7e7}.status-pill.overdue{background:#ffe1e1}.status-pill.soon{background:#fff0c2}.status-pill.pending{background:#e7eefc}.bill-row{grid-template-columns:1fr auto auto auto;gap:12px;align-items:center}.row-actions{display:flex;gap:6px;flex-wrap:wrap}.empty{padding:24px;text-align:center;opacity:.65}
+
+.vehicle-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.vehicle-summary-grid>div{padding:12px;border:1px solid var(--border,#ddd);border-radius:12px;display:flex;flex-direction:column;gap:3px}.vehicle-summary-grid small{opacity:.65}.vehicle-summary-grid span{font-size:12px;opacity:.7}.history-event{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border,#ddd)}.history-event:last-child{border-bottom:0}
+@media(max-width:800px){.vehicle-summary-grid{grid-template-columns:repeat(2,1fr)}}
+
+.price-history{display:flex;flex-direction:column;gap:2px;margin-top:5px;opacity:.75}.price-history small{font-size:11px}
