@@ -1,4 +1,4 @@
-const CACHE="ailefinans-v41";
+const CACHE="ailefinans-v42";
 const ASSETS=["./","./index.html","./style.css","./app.js"];
 self.addEventListener("install",e=>{
   self.skipWaiting();

@@ -36,7 +36,12 @@ function save(){
 
 function load(){
   let raw=null;
-  try{raw=localStorage.getItem(KEY)||localStorage.getItem("ailefinans_v24")}catch(e){}
+  try{
+    for(const key of [KEY,"ailefinans_v41","ailefinans_v40","ailefinans_v39","ailefinans_v38","ailefinans_v37","ailefinans_v36","ailefinans_v24"]){
+      raw=localStorage.getItem(key);
+      if(raw)break;
+    }
+  }catch(e){}
   if(raw){
     try{
       const x=JSON.parse(raw);
@@ -52,6 +57,8 @@ function load(){
   for(const k of ["members","accounts","expenses","investments","vehicles","bills","incomes"]){
     if(!Array.isArray(db[k]))db[k]=[];
   }
+  // Normalize older member formats so old data remains visible and selectable.
+  db.members=db.members.map(m=>typeof m==="string"?m:(m?.name||m?.fullName||m?.title||"")).map(String).filter(Boolean);
   db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",...(db.settings||{})};
 }
   db.bills=Array.isArray(db.bills)?db.bills:[];
@@ -83,6 +90,20 @@ function investmentCard(x){
   const history=Array.isArray(x.priceHistory)?x.priceHistory.slice(-3).reverse():[];
   const historyHtml=history.length?`<div class="price-history">${history.map(h=>`<small>${escapeHtml(h.date)} · ${money(Number(h.price)||0,c)}${h.note?` · ${escapeHtml(h.note)}`:""}</small>`).join("")}</div>`:"";
   return `<div class="item investment-card"><span><b>${escapeHtml(x.name)}</b><br><span class="muted">${investmentTypeLabel[x.type]||"Diğer"} · ${qty}${x.type==="gold"?" g":""}</span><br><small class="live-status">${status}${history.length?` · ${x.priceHistory.length} kayıt`:""}</small>${historyHtml}</span><span class="investment-value"><b>${value==null?"—":money(value,c)}</b><br>${change}<br><button data-manual-price="${x.id}">Fiyat Gir</button></span></div>`;
+}
+function billStatus(b){
+  if(b.paid)return "paid";
+  const d=new Date((b.dueDate||"")+"T00:00:00"),todayDate=new Date();todayDate.setHours(0,0,0,0);
+  if(Number.isNaN(d.getTime()))return "unknown";
+  const diff=Math.ceil((d-todayDate)/86400000);
+  return diff<0?"overdue":diff<=3?"soon":"pending";
+}
+function billNextDate(b){
+  if(!b.recurring)return b.dueDate||"";
+  const d=new Date((b.dueDate||"")+"T00:00:00"),todayDate=new Date();todayDate.setHours(0,0,0,0);
+  if(Number.isNaN(d.getTime()))return b.dueDate||"";
+  while(d<todayDate){if(b.period==="weekly")d.setDate(d.getDate()+7);else if(b.period==="yearly")d.setFullYear(d.getFullYear()+1);else d.setMonth(d.getMonth()+1)}
+  return d.toISOString().slice(0,10);
 }
 function renderBills(){
   const box=$("billsList");if(!box)return;
@@ -143,18 +164,33 @@ function render(){
 }
 
 
+function availableReportMonths(){
+  const set=new Set();
+  const add=a=>(a||[]).forEach(x=>{const d=String(x.date||x.dueDate||"").slice(0,7);if(/^\d{4}-\d{2}$/.test(d))set.add(d)});
+  add(db.incomes);add(db.expenses);add(db.vehicleFuelLogs);add(db.vehicleServices);add(db.vehicleDocuments);add(db.bills);
+  const now=new Date();set.add(now.toISOString().slice(0,7));
+  return [...set].sort().reverse();
+}
+function monthLabel(ym){
+  const [y,m]=String(ym).split("-").map(Number);return y&&m?new Intl.DateTimeFormat("tr-TR",{month:"long",year:"numeric"}).format(new Date(y,m-1,1)):"Ay";
+}
 function renderReport(){
-  const ym=new Date().toISOString().slice(0,7);
-  const monthName=new Intl.DateTimeFormat("tr-TR",{month:"long",year:"numeric"}).format(new Date());
   const selected=$('reportMember')?.value||"";
+  const monthSelect=$('reportMonth');
+  const currentMonth=monthSelect?.value||new Date().toISOString().slice(0,7);
   if($('reportMember')){
-    const current=$('reportMember').value;
     $('reportMember').innerHTML='<option value="">Genel</option>'+db.members.map(m=>`<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
-    $('reportMember').value=db.members.includes(current)?current:"";
+    $('reportMember').value=db.members.includes(selected)?selected:"";
   }
+  const months=availableReportMonths();
+  if(monthSelect){
+    monthSelect.innerHTML=months.map(m=>`<option value="${m}">${escapeHtml(monthLabel(m))}</option>`).join('');
+    monthSelect.value=months.includes(currentMonth)?currentMonth:months[0];
+  }
+  const ym=monthSelect?.value||currentMonth;
   const filter=x=>!selected || String(x.member||"")===selected;
   const incomes=(db.incomes||[]).filter(x=>String(x.date||"").slice(0,7)===ym&&filter(x));
-  const expenses=db.expenses.filter(x=>String(x.date||"").slice(0,7)===ym&&filter(x));
+  const expenses=(db.expenses||[]).filter(x=>String(x.date||"").slice(0,7)===ym&&filter(x));
   const income=incomes.reduce((s,x)=>s+Number(x.amount||0),0);
   const expense=expenses.reduce((s,x)=>s+Number(x.amount||0),0);
   const net=income-expense;
@@ -162,19 +198,19 @@ function renderReport(){
   const inv=(db.investments||[]).reduce((s,x)=>s+(Number(x.livePrice)>0?Number(x.livePrice)*Number(x.quantity||0):0),0);
   const fuel=(db.vehicleFuelLogs||[]).filter(x=>String(x.date||"").slice(0,7)===ym).reduce((s,x)=>s+Number(x.total||0),0);
   const service=(db.vehicleServices||[]).filter(x=>String(x.date||"").slice(0,7)===ym).reduce((s,x)=>s+Number(x.cost||0),0);
-  const title=selected?`${escapeHtml(selected)} · ${monthName}`:monthName;
+  const title=selected?`${escapeHtml(selected)} · ${escapeHtml(monthLabel(ym))}`:escapeHtml(monthLabel(ym));
   const catRows=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>`<div class="report-row"><span>${escapeHtml(k)}</span><b>${money(v,"TRY")}</b></div>`).join("")||'<div class="empty">Bu ay harcama yok.</div>';
+  const archive=months.map(m=>{
+    const mi=(db.incomes||[]).filter(x=>String(x.date||"").slice(0,7)===m&&filter(x)).reduce((s,x)=>s+Number(x.amount||0),0);
+    const me=(db.expenses||[]).filter(x=>String(x.date||"").slice(0,7)===m&&filter(x)).reduce((s,x)=>s+Number(x.amount||0),0);
+    return `<button class="month-archive ${m===ym?'active':''}" data-report-month="${m}"><span>${escapeHtml(monthLabel(m))}</span><b>${money(mi-me,"TRY")}</b><small>Gelir ${money(mi,"TRY")} · Gider ${money(me,"TRY")}</small></button>`;
+  }).join('');
   $('reportText').innerHTML=`
     <div class="report-hero"><div><small>${title}</small><h3>${selected?'Kişi Özeti':'Genel Finans Özeti'}</h3><div class="report-big ${net>=0?'gain':'loss'}">${net>=0?'+':''}${money(net,"TRY")}</div></div><span class="report-icon">₺</span></div>
-    <div class="report-grid">
-      <div class="report-card"><small>Gelir</small><b>${money(income,"TRY")}</b><span>${incomes.length} işlem</span></div>
-      <div class="report-card"><small>Gider</small><b>${money(expense,"TRY")}</b><span>${expenses.length} işlem</span></div>
-      <div class="report-card"><small>Yatırım Değeri</small><b>${money(inv,"TRY")}</b><span>${db.investments.length} yatırım</span></div>
-      <div class="report-card"><small>Araç Gideri</small><b>${money(selected?0:fuel+service,"TRY")}</b><span>${selected?'Kişiye bağlı araç gideri yok':'Yakıt + bakım'}</span></div>
-    </div>
-    <div class="report-columns"><div class="panel"><h3>Harcama Dağılımı</h3>${catRows}</div>
-      <div class="panel"><h3>${selected?'Seçili Kişi':'Genel'} Özeti</h3><div class="report-row"><span>Toplam hesap bakiyesi</span><b>${money(db.accounts.reduce((s,a)=>s+Number(a.balance||0),0),"TRY")}</b></div><div class="report-row"><span>Üye</span><b>${selected?escapeHtml(selected):db.members.length+' kişi'}</b></div><div class="report-row"><span>Araç</span><b>${db.vehicles.length}</b></div><div class="report-row"><span>Yatırım</span><b>${db.investments.length}</b></div></div>
-    </div>`;
+    <div class="report-grid"><div class="report-card"><small>Gelir</small><b>${money(income,"TRY")}</b><span>${incomes.length} işlem</span></div><div class="report-card"><small>Gider</small><b>${money(expense,"TRY")}</b><span>${expenses.length} işlem</span></div><div class="report-card"><small>Yatırım Değeri</small><b>${money(inv,"TRY")}</b><span>${db.investments.length} yatırım</span></div><div class="report-card"><small>Araç Gideri</small><b>${money(selected?0:fuel+service,"TRY")}</b><span>${selected?'Genel araç gideri':'Yakıt + bakım'}</span></div></div>
+    <div class="report-columns"><div class="panel"><h3>Harcama Dağılımı</h3>${catRows}</div><div class="panel"><h3>${selected?'Seçili Kişi':'Genel'} Özeti</h3><div class="report-row"><span>Toplam hesap bakiyesi</span><b>${money(db.accounts.reduce((s,a)=>s+Number(a.balance||0),0),"TRY")}</b></div><div class="report-row"><span>Üye</span><b>${selected?escapeHtml(selected):db.members.length+' kişi'}</b></div><div class="report-row"><span>Araç</span><b>${db.vehicles.length}</b></div><div class="report-row"><span>Yatırım</span><b>${db.investments.length}</b></div></div></div>
+    <div class="panel month-archive-panel"><h3>Aylık Arşiv</h3><p class="muted">Önceki ayların kayıtları burada ayrı ayrı tutulur. Ay seçerek raporu açabilirsin.</p><div class="month-archive-grid">${archive}</div></div>`;
+  document.querySelectorAll('[data-report-month]').forEach(b=>b.onclick=()=>{if(monthSelect){monthSelect.value=b.dataset.reportMonth;renderReport()}});
 }
 function renderSettings(){
   const s=db.settings||{};
@@ -234,6 +270,7 @@ $("incomeForm").addEventListener("submit",e=>{
   if(account&&account.currency===$("incomeCurrency").value)account.balance+=amount;
   save();$("incomeForm").reset();closeModal("incomeModal");render();toast("Gelir kaydedildi");
 });
+const esc=escapeHtml;
 function escapeHtml(v){
   return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 }
@@ -264,6 +301,7 @@ $("sideNav").addEventListener("click",e=>{
 });
 
 if($("reportMember"))$("reportMember").addEventListener("change",()=>renderReport());
+if($("reportMonth"))$("reportMonth").addEventListener("change",()=>renderReport());
 
 /* ONE and only one member submit listener. */
 $("memberForm").addEventListener("submit",e=>{
