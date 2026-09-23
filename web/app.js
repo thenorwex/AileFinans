@@ -311,13 +311,7 @@ async function marketHealthCheck(){
   try{const d=await getCrypto(["bitcoin"],["usd"]);checks.push(["Kripto",Number(d.bitcoin?.usd)>0])}catch(e){checks.push(["Kripto",false])}
   return checks;
 }
-function startInvestmentRefresh(){
-  clearInterval(investmentTimer);
-  if(db.settings.autoUpdate!==false){
-    updateInvestments();
-    investmentTimer=setInterval(updateInvestments,Math.max(30,Number(db.settings.refreshSeconds)||30)*1000);
-  }
-}
+function startInvestmentRefresh(){ return null; }
 
 function billStatus(b){
   if(b.paid)return "paid";
@@ -355,6 +349,7 @@ function renderBillSummary(){
 }
 
 function render(){
+  renderDailyHistory();
   renderTodayHistory();
   renderBills();renderBillSummary();
   if($("memberCount"))$("memberCount").textContent=db.members.length;
@@ -447,7 +442,7 @@ $("saveSettings").onclick=()=>{
   db.settings.currency=$("settingCurrency").value;
   db.settings.theme=$("settingTheme").value;
   db.settings.refreshSeconds=Number($("settingRefresh").value)||30;
-  db.settings.autoUpdate=$("settingAutoUpdate").checked;
+  db.settings.autoUpdate=false;
   db.settings.priceSource=$("settingPriceSource").value;
   db.settings.customPriceUrl=$("settingPriceUrl").value.trim();
   db.settings.customPriceMode=$("settingPriceMode").value;
@@ -823,7 +818,7 @@ $("investmentForm").addEventListener("submit",e=>{
   const qty=Number($("investmentQuantity").value), buy=Number($("investmentBuyPrice").value)||0;
   if(!Number.isFinite(qty)||qty<=0)return;
   db.investments.push({id:uid(),type:$("investmentType").value,name:$("investmentName").value.trim(),symbol:$("investmentSymbol").value.trim(),quantity:qty,buyPrice:buy,currency:$("investmentCurrency").value,buyDate:$("investmentBuyDate").value,note:$("investmentNote").value.trim(),livePrice:0,liveUpdatedAt:0});
-  save();closeModal("investmentModal");render();updateInvestments();
+  save();closeModal("investmentModal");render();showPage("investments");updateInvestments();
 });
 if($("refreshInvestments"))$("refreshInvestments").onclick=()=>{ $("status").textContent="Güncelleniyor..."; updateInvestments(); };
 
@@ -863,14 +858,57 @@ if($("addBill"))$("addBill").onclick=()=>{$("billId").value="";$("billForm").res
 // Today's historical notes
 const historicalEvents={"01-01":["Yeni yılın ilk günü."],"02-04":["Dünya Kanser Günü."],"02-14":["Sevgililer Günü."],"02-21":["Uluslararası Anadil Günü."],"03-08":["Dünya Kadınlar Günü."],"03-18":["Çanakkale Deniz Zaferi ve Şehitleri Anma Günü."],"03-21":["Nevruz."],"04-23":["Türkiye'de Ulusal Egemenlik ve Çocuk Bayramı."],"05-01":["Emek ve Dayanışma Günü."],"05-19":["Atatürk'ü Anma, Gençlik ve Spor Bayramı."],"06-05":["Dünya Çevre Günü."],"07-15":["Demokrasi ve Millî Birlik Günü."],"08-30":["Zafer Bayramı."],"09-23":["Ekinoks dönemi: Kuzey Yarımküre'de sonbahar başlangıcı civarı."],"10-29":["Cumhuriyet Bayramı."],"11-10":["Türkiye'de Mustafa Kemal Atatürk'ü anma günü."],"11-20":["Dünya Çocuk Hakları Günü."],"12-03":["Dünya Engelliler Günü."],"12-10":["İnsan Hakları Günü."]};
 function renderTodayHistory(){
-  const box=$("todayHistory");if(!box)return;const d=new Date(),key=String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const box=$("dailyHistory");if(!box)return;const d=new Date(),key=String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   const events=historicalEvents[key]||["Bugün için uygulamadaki kısa tarih notu bulunmuyor.","Takvimde yeni bir gün. İnsanlık hâlâ günleri sayıyor, teknoloji şimdilik ilerliyor."];
-  if($("todayHistoryTitle"))$("todayHistoryTitle").textContent=`${d.toLocaleDateString("tr-TR",{day:"numeric",month:"long"})} · Bugünün Tarihi`;
+  if($("dailyHistoryTitle"))$("dailyHistoryTitle").textContent=`${d.toLocaleDateString("tr-TR",{day:"numeric",month:"long"})} · Bugünün Tarihi`;
   box.innerHTML=events.map((x,i)=>`<div class="history-event"><span>${i?"•":"📅"}</span><div>${escapeHtml(x)}</div></div>`).join("");
 }
 
 load();
 applyTheme();
 render();
-startInvestmentRefresh();
+
 })();
+function fuelUnitPrice(total,liters){
+  const t=Number(total)||0,l=Number(liters)||0;
+  return l>0?t/l:0;
+}
+function fuelTotalFromForm(){
+  const liters=Number($("vehicleFuelLiters")?.value)||0;
+  const total=Number($("vehicleFuelTotal")?.value)||0;
+  const unit=fuelUnitPrice(total,liters);
+  if($("vehicleFuelPrice"))$("vehicleFuelPrice").value=unit?unit.toFixed(2):"";
+}
+
+["vehicleFuelTotal","vehicleFuelLiters"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",fuelTotalFromForm)});
+
+const DAILY_HISTORY={"01-01": [["Türkiye", "Yeni yıl"], ["Dünya", "Dünya Barış Günü"]], "01-10": [["Dünya", "Dünya Beyaz Baston Günü"]], "02-04": [["Dünya", "Dünya Kanser Günü"]], "02-14": [["Dünya", "Sevgililer Günü"]], "02-21": [["Dünya", "Anadil Günü"]], "03-08": [["Dünya", "Dünya Kadınlar Günü"]], "03-14": [["Bilim", "Pi Günü"]], "03-18": [["Türkiye", "Çanakkale Deniz Zaferi"]], "03-21": [["Dünya", "Nevruz / Bahar başlangıcı dönemi"]], "04-07": [["Dünya", "Dünya Sağlık Günü"]], "04-22": [["Dünya", "Dünya Günü arifesi"]], "04-23": [["Türkiye", "Ulusal Egemenlik ve Çocuk Bayramı"]], "05-01": [["Türkiye", "Emek ve Dayanışma Günü"]], "05-19": [["Türkiye", "Atatürk'ü Anma, Gençlik ve Spor Bayramı"]], "06-05": [["Dünya", "Dünya Çevre Günü"]], "06-21": [["Gökyüzü", "Kuzey Yarımküre'de yaz gündönümü dönemi"]], "07-15": [["Türkiye", "15 Temmuz Demokrasi ve Millî Birlik Günü"]], "07-20": [["Dünya", "Uluslararası Satranç Günü"]], "08-30": [["Türkiye", "Zafer Bayramı"]], "09-23": [["Astronomi", "Eylül ekinoksu dönemi"]], "10-29": [["Türkiye", "Cumhuriyet Bayramı"]], "11-10": [["Türkiye", "Atatürk'ü Anma Günü"]], "11-20": [["Dünya", "Dünya Çocuk Hakları Günü"]], "12-03": [["Dünya", "Dünya Engelliler Günü"]], "12-10": [["Dünya", "İnsan Hakları Günü"]], "12-21": [["Gökyüzü", "Kuzey Yarımküre'de kış gündönümü dönemi"]], "12-31": [["Dünya", "Yılın son günü"]]};
+
+function renderDailyHistory(){
+  const box=$("dailyHistory");if(!box)return;
+  const d=new Date(),key=String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const list=DAILY_HISTORY[key]||[];
+  const season=d.getMonth()<=1||d.getMonth()===11?"Kış":d.getMonth()<=4?"İlkbahar":d.getMonth()<=7?"Yaz":"Sonbahar";
+  const weekday=d.toLocaleDateString("tr-TR",{weekday:"long"});
+  let html=`<div class="daily-date"><b>${d.toLocaleDateString("tr-TR",{day:"numeric",month:"long",year:"numeric"})}</b><span>${weekday} · ${season}</span></div>`;
+  if(list.length) html+=list.map(x=>`<div class="history-item"><b>${esc(x[0])}</b><span>${esc(x[1])}</span></div>`).join("");
+  else html+='<div class="history-item"><b>Bugünün notu</b><span>Bu tarih için özel kayıt bulunmuyor. Takvimde yeni bir gün daha.</span></div>';
+  const dayOfYear=Math.floor((d-new Date(d.getFullYear(),0,0))/86400000);
+  const remaining=Math.ceil((new Date(d.getFullYear(),11,31)-d)/86400000);
+  html+=`<div class="history-fact"><b>Takvim bilgisi</b><span>Yılın ${dayOfYear}. günü · Yılın bitmesine ${remaining} gün kaldı.</span></div>`;
+  box.innerHTML=html;
+}
+
+const menuToggle=$("menuToggle"),menuOverlay=$("menuOverlay");
+function setMenu(open){
+  document.body.classList.toggle("menu-open",open);
+  if(menuToggle)menuToggle.setAttribute("aria-expanded",open?"true":"false");
+}
+if(menuToggle)menuToggle.onclick=()=>setMenu(!document.body.classList.contains("menu-open"));
+if(menuOverlay)menuOverlay.onclick=()=>setMenu(false);
+document.addEventListener("click",e=>{
+  const a=e.target.closest?.("[data-page]");
+  if(a&&window.innerWidth<900)setMenu(false);
+});
+
+setTimeout(()=>{try{showPage("home")}catch(e){}},0);
