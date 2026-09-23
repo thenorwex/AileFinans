@@ -44,6 +44,10 @@ function load(){
   }
   if(!Array.isArray(db.expenseCategories)||!db.expenseCategories.length)db.expenseCategories=["Market","Yakıt","Fatura","Sağlık","Kira","Alışveriş","Restoran","Eğitim","Diğer"];
   if(!Array.isArray(db.vehicles))db.vehicles=[];
+  if(!Array.isArray(db.vehicleKmLogs))db.vehicleKmLogs=[];
+  if(!Array.isArray(db.vehicleFuelLogs))db.vehicleFuelLogs=[];
+  if(!Array.isArray(db.vehicleServices))db.vehicleServices=[];
+  if(!Array.isArray(db.vehicleDocuments))db.vehicleDocuments=[];
   for(const k of ["members","accounts","expenses","investments","vehicles","bills"]){
     if(!Array.isArray(db[k]))db[k]=[];
   }
@@ -230,42 +234,81 @@ $("accountEditForm").addEventListener("submit",e=>{
   showAccounts();
 });
 
+
+let activeVehicleId=null;
+const today=()=>new Date().toISOString().slice(0,10);
+const vehicleById=id=>db.vehicles.find(v=>v.id===id);
+const vehicleKm=v=>Math.max(Number(v.km)||0,...db.vehicleKmLogs.filter(x=>x.vehicleId===v.id).map(x=>Number(x.km)||0),...db.vehicleFuelLogs.filter(x=>x.vehicleId===v.id).map(x=>Number(x.km)||0));
+const fillAccountSelect=id=>{$(id).innerHTML=db.accounts.map(a=>`<option value="${a.id}">${escapeHtml(a.name)} (${money(a.balance,a.currency)})</option>`).join("")};
+
 function showVehicles(){
-  $("vehicleList").innerHTML=db.vehicles.length
-    ? db.vehicles.map(v=>`<div class="item">
-        <span><b>${escapeHtml(v.name)}</b><br><span class="muted">${escapeHtml(v.plate||"Plaka yok")} · ${Number(v.km||0).toLocaleString("tr-TR")} km · ${escapeHtml(v.fuel||"")}</span></span>
-        <span class="row-actions"><button data-delete-vehicle="${v.id}">Sil</button></span>
-      </div>`).join("")
-    : `<div class="empty">Henüz araç eklenmedi.</div>`;
+  $("vehicleList").innerHTML=db.vehicles.length?db.vehicles.map(v=>`<div class="item"><span><b>${escapeHtml(v.name)}</b><br><span class="muted">${escapeHtml(v.plate||"Plaka yok")} · ${vehicleKm(v).toLocaleString("tr-TR")} km · ${escapeHtml(v.fuel||"")}</span></span><span class="row-actions"><button data-open-vehicle="${v.id}">Aç</button><button data-delete-vehicle="${v.id}">Sil</button></span></div>`).join(""):'<div class="empty">Henüz araç eklenmedi.</div>';
   openModal("vehicleListModal");
 }
 $("openVehicles").onclick=showVehicles;
-$("vehicleAddBtn").onclick=()=>{closeModal("vehicleListModal");openModal("vehicleModal")};
+$("vehicleAddBtn").onclick=()=>{closeModal("vehicleListModal");$("vehicleForm").reset();openModal("vehicleModal")};
+
+function openVehicle(v){
+  activeVehicleId=v.id;
+  const fuels=db.vehicleFuelLogs.filter(x=>x.vehicleId===v.id).sort((a,b)=>b.date.localeCompare(a.date));
+  const services=db.vehicleServices.filter(x=>x.vehicleId===v.id).sort((a,b)=>b.date.localeCompare(a.date));
+  const docs=db.vehicleDocuments.filter(x=>x.vehicleId===v.id).sort((a,b)=>a.expiry.localeCompare(b.expiry));
+  const fuelCost=fuels.reduce((s,x)=>s+Number(x.total||0),0), serviceCost=services.reduce((s,x)=>s+Number(x.cost||0),0);
+  $("vehicleDetailTitle").textContent=v.name;
+  $("vehicleDetailSummary").innerHTML=`<b>${escapeHtml(v.name)}</b><br>${escapeHtml(v.plate||"")} · ${vehicleKm(v).toLocaleString("tr-TR")} km<br>Yakıt: ${money(fuelCost,"TRY")} · Bakım: ${money(serviceCost,"TRY")}`;
+  $("vehicleHistory").innerHTML=(fuels.map(x=>`<div class="item"><span>⛽ ${x.liters} L · ${x.date} · ${x.km.toLocaleString("tr-TR")} km</span><b>${money(x.total,"TRY")}</b></div>`).join("")+
+    services.map(x=>`<div class="item"><span>🔧 ${escapeHtml(x.title)} · ${x.date} · ${(Number(x.km)||0).toLocaleString("tr-TR")} km</span><b>${money(x.cost||0,"TRY")}</b></div>`).join("")+
+    docs.map(x=>`<div class="item"><span>📄 ${escapeHtml(x.type)} · ${x.date} → ${x.expiry}</span><b>${money(x.cost||0,"TRY")}</b></div>`).join("")||'<div class="empty">Henüz kayıt yok.</div>');
+  openModal("vehicleDetailModal");
+}
+
+$("vehicleAddKmBtn").onclick=()=>{closeModal("vehicleDetailModal");$("vehicleKmForm").reset();$("vehicleKmDate").value=today();$("vehicleKmValue").value=vehicleKm(vehicleById(activeVehicleId));openModal("vehicleKmModal")};
+$("vehicleAddFuelBtn").onclick=()=>{closeModal("vehicleDetailModal");$("vehicleFuelForm").reset();$("vehicleFuelDate").value=today();$("vehicleFuelKm").value=vehicleKm(vehicleById(activeVehicleId));fillAccountSelect("vehicleFuelAccount");openModal("vehicleFuelModal")};
+$("vehicleAddServiceBtn").onclick=()=>{closeModal("vehicleDetailModal");$("vehicleServiceForm").reset();$("vehicleServiceDate").value=today();$("vehicleServiceKm").value=vehicleKm(vehicleById(activeVehicleId));fillAccountSelect("vehicleServiceAccount");openModal("vehicleServiceModal")};
+$("vehicleAddInsuranceBtn").onclick=()=>{closeModal("vehicleDetailModal");$("vehicleInsuranceForm").reset();$("vehicleDocDate").value=today();$("vehicleDocExpiry").value=today();fillAccountSelect("vehicleDocAccount");openModal("vehicleInsuranceModal")};
 
 $("vehicleForm").addEventListener("submit",e=>{
-  e.preventDefault();
-  const name=$("vehicleName").value.trim();
-  if(!name)return;
-  db.vehicles.push({
-    id:uid(),
-    name,
-    plate:$("vehiclePlate").value.trim(),
-    km:Number($("vehicleKm").value)||0,
-    fuel:$("vehicleFuel").value.trim()
-  });
-  save();
-  $("vehicleForm").reset();
-  closeModal("vehicleModal");
-  render();
-  showVehicles();
+  e.preventDefault();const name=$("vehicleName").value.trim();if(!name)return;
+  db.vehicles.push({id:uid(),name,plate:$("vehiclePlate").value.trim(),km:Number($("vehicleKm").value)||0,fuel:$("vehicleFuel").value.trim()});
+  save();$("vehicleForm").reset();closeModal("vehicleModal");render();showVehicles();
+});
+$("vehicleKmForm").addEventListener("submit",e=>{
+  e.preventDefault();const v=vehicleById(activeVehicleId),km=Number($("vehicleKmValue").value);if(!v||km<0)return;
+  db.vehicleKmLogs.push({id:uid(),vehicleId:v.id,km,date:$("vehicleKmDate").value||today(),note:$("vehicleKmNote").value.trim()});v.km=Math.max(Number(v.km)||0,km);save();closeModal("vehicleKmModal");render();openVehicle(v);
+});
+$("vehicleFuelForm").addEventListener("submit",async e=>{
+  e.preventDefault();const v=vehicleById(activeVehicleId),liters=Number($("vehicleFuelLiters").value),price=Number($("vehicleFuelPrice").value),total=Number($("vehicleFuelTotal").value),km=Number($("vehicleFuelKm").value);if(!v||liters<=0||price<0||total<0||km<0)return;
+  const accountId=$("vehicleFuelAccount").value,a=db.accounts.find(x=>x.id===accountId);if(a&&a.currency==="TRY")a.balance-=total;
+  db.vehicleFuelLogs.push({id:uid(),vehicleId:v.id,liters,price,total,km,accountId,date:$("vehicleFuelDate").value||today(),station:$("vehicleFuelStation").value.trim(),photo:await fileToDataUrl($("vehicleFuelPhoto").files[0])});
+  v.km=Math.max(Number(v.km)||0,km);save();closeModal("vehicleFuelModal");render();openVehicle(v);
+});
+$("vehicleServiceForm").addEventListener("submit",async e=>{
+  e.preventDefault();const v=vehicleById(activeVehicleId),cost=Number($("vehicleServiceCost").value)||0,km=Number($("vehicleServiceKm").value)||0;if(!v||cost<0||km<0)return;
+  const accountId=$("vehicleServiceAccount").value,a=db.accounts.find(x=>x.id===accountId);if(a&&a.currency==="TRY")a.balance-=cost;
+  db.vehicleServices.push({id:uid(),vehicleId:v.id,title:$("vehicleServiceTitle").value.trim(),cost,km,nextKm:Number($("vehicleServiceNextKm").value)||0,accountId,date:$("vehicleServiceDate").value||today(),note:$("vehicleServiceNote").value.trim(),photo:await fileToDataUrl($("vehicleServicePhoto").files[0])});
+  v.km=Math.max(Number(v.km)||0,km);save();closeModal("vehicleServiceModal");render();openVehicle(v);
+});
+$("vehicleInsuranceForm").addEventListener("submit",e=>{
+  e.preventDefault();const v=vehicleById(activeVehicleId),cost=Number($("vehicleDocCost").value)||0;if(!v)return;
+  const accountId=$("vehicleDocAccount").value,a=db.accounts.find(x=>x.id===accountId);if(a&&a.currency==="TRY")a.balance-=cost;
+  db.vehicleDocuments.push({id:uid(),vehicleId:v.id,type:$("vehicleDocType").value,date:$("vehicleDocDate").value,expiry:$("vehicleDocExpiry").value,cost,accountId,note:$("vehicleDocNote").value.trim()});save();closeModal("vehicleInsuranceModal");render();openVehicle(v);
 });
 
 document.addEventListener("click",e=>{
+  const op=e.target.closest("[data-open-vehicle]");
+  if(op){const v=vehicleById(op.dataset.openVehicle);if(v){closeModal("vehicleListModal");openVehicle(v)}return}
   const del=e.target.closest("[data-delete-vehicle]");
   if(!del)return;
   const v=db.vehicles.find(x=>x.id===del.dataset.deleteVehicle);
   if(!v)return;
   if(!confirm(`"${v.name}" aracı silinsin mi?`))return;
+  for(const x of db.vehicleFuelLogs.filter(x=>x.vehicleId===v.id)){const a=db.accounts.find(q=>q.id===x.accountId);if(a&&a.currency==="TRY")a.balance+=Number(x.total||0);}
+  for(const x of db.vehicleServices.filter(x=>x.vehicleId===v.id)){const a=db.accounts.find(q=>q.id===x.accountId);if(a&&a.currency==="TRY")a.balance+=Number(x.cost||0);}
+  for(const x of db.vehicleDocuments.filter(x=>x.vehicleId===v.id)){const a=db.accounts.find(q=>q.id===x.accountId);if(a&&a.currency==="TRY")a.balance+=Number(x.cost||0);}
+  db.vehicleKmLogs=db.vehicleKmLogs.filter(x=>x.vehicleId!==v.id);
+  db.vehicleFuelLogs=db.vehicleFuelLogs.filter(x=>x.vehicleId!==v.id);
+  db.vehicleServices=db.vehicleServices.filter(x=>x.vehicleId!==v.id);
+  db.vehicleDocuments=db.vehicleDocuments.filter(x=>x.vehicleId!==v.id);
   db.vehicles=db.vehicles.filter(x=>x.id!==v.id);
   save();render();showVehicles();
 });

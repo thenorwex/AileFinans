@@ -125,6 +125,24 @@
   </div>
 </div>
 
+
+<div class="modal" id="vehicleDetailModal" hidden><div class="modalbox">
+<h3 id="vehicleDetailTitle">Araç</h3><div id="vehicleDetailSummary" class="card"></div><div id="vehicleHistory"></div>
+<div class="row"><button data-close="vehicleDetailModal">Kapat</button><button class="primary" id="vehicleAddKmBtn">+ Km</button><button class="primary" id="vehicleAddFuelBtn">+ Yakıt</button><button class="primary" id="vehicleAddServiceBtn">+ Bakım</button><button class="primary" id="vehicleAddInsuranceBtn">+ Belge</button></div>
+</div></div>
+<div class="modal" id="vehicleKmModal" hidden><div class="modalbox"><h3>Kilometre Kaydı</h3><form id="vehicleKmForm">
+<input id="vehicleKmValue" type="number" min="0" required placeholder="Kilometre"><input id="vehicleKmDate" type="date" required><textarea id="vehicleKmNote" rows="2" placeholder="Not"></textarea>
+<div class="row"><button type="button" data-close="vehicleKmModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="vehicleFuelModal" hidden><div class="modalbox"><h3>Yakıt Kaydı</h3><form id="vehicleFuelForm">
+<input id="vehicleFuelLiters" type="number" min="0.01" step="0.01" required placeholder="Litre"><input id="vehicleFuelPrice" type="number" min="0" step="0.001" required placeholder="Litre fiyatı"><input id="vehicleFuelTotal" type="number" min="0" step="0.01" required placeholder="Toplam tutar"><input id="vehicleFuelKm" type="number" min="0" required placeholder="Kilometre"><select id="vehicleFuelAccount"></select><input id="vehicleFuelDate" type="date" required><input id="vehicleFuelStation" placeholder="İstasyon"><label>Fotoğraf</label><input id="vehicleFuelPhoto" type="file" accept="image/*" capture="environment">
+<div class="row"><button type="button" data-close="vehicleFuelModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="vehicleServiceModal" hidden><div class="modalbox"><h3>Bakım / Servis</h3><form id="vehicleServiceForm">
+<input id="vehicleServiceTitle" required placeholder="İşlem"><input id="vehicleServiceCost" type="number" min="0" step="0.01" placeholder="Tutar"><input id="vehicleServiceKm" type="number" min="0" placeholder="Kilometre"><input id="vehicleServiceNextKm" type="number" min="0" placeholder="Sonraki bakım km"><input id="vehicleServiceDate" type="date" required><select id="vehicleServiceAccount"></select><textarea id="vehicleServiceNote" rows="2" placeholder="Not"></textarea><label>Fotoğraf</label><input id="vehicleServicePhoto" type="file" accept="image/*" capture="environment">
+<div class="row"><button type="button" data-close="vehicleServiceModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="vehicleInsuranceModal" hidden><div class="modalbox"><h3>Sigorta / Kasko / Muayene</h3><form id="vehicleInsuranceForm">
+<select id="vehicleDocType"><option>Sigorta</option><option>Kasko</option><option>Muayene</option></select><input id="vehicleDocDate" type="date" required><input id="vehicleDocExpiry" type="date" required><input id="vehicleDocCost" type="number" min="0" step="0.01" placeholder="Tutar"><select id="vehicleDocAccount"></select><textarea id="vehicleDocNote" rows="2" placeholder="Not"></textarea>
+<div class="row"><button type="button" data-close="vehicleInsuranceModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+
 <div class="modal" id="expenseModal" hidden>
   <div class="modalbox"><h3>Harcama Ekle</h3>
     <form id="expenseForm">
