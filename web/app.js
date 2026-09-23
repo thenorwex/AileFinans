@@ -52,7 +52,7 @@ function load(){
   for(const k of ["members","accounts","expenses","investments","vehicles","bills","incomes"]){
     if(!Array.isArray(db[k]))db[k]=[];
   }
-  db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:30,autoUpdate:true,customPriceUrl:"",customPriceMode:"auto",customPriceSelector:"",customPriceJsonPath:"",customPriceRegex:"",... (db.settings||{})};
+  db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:30,autoUpdate:true,priceSource:"builtin",customPriceUrl:"",customPriceMode:"auto",customPriceSelector:"",customPriceJsonPath:"",customPriceRegex:"",... (db.settings||{})};
 }
 
 function fileToDataUrl(file){
@@ -127,19 +127,19 @@ function pickQuote(data, currency){
   return Number(row.price);
 }
 async function getGoldTRY(){
-  const d=await fetchFirst([
-    "https://api.goldprice.dev/v1/carat?currency=TRY",
-    "https://api.goldprice.dev/v1/prices?symbol=XAU-TRY-SPOT"
-  ]);
-  if(d.price_gram_24k)return Number(d.price_gram_24k);
-  const p=pickQuote(d,"TRY");
-  return p?Number(p):null;
+  const d=await fetchJson("https://xaus.com/api/v1/spot?currency=TRY&unit=gram&fresh="+Date.now());
+  const p=Number(d?.xau?.price);
+  if(Number.isFinite(p)&&p>0)return p;
+  throw new Error("XAUS gram TRY fiyatı bulunamadı");
 }
 async function getGold(currency){
-  if(currency==="TRY")return getGoldTRY();
-  const d=await fetchJson("https://api.goldprice.dev/v1/carat?currency="+encodeURIComponent(currency));
-  return Number(d.price_gram_24k)||null;
+  const c=encodeURIComponent(currency||"TRY");
+  const d=await fetchJson("https://xaus.com/api/v1/spot?currency="+c+"&unit=gram&fresh="+Date.now());
+  const p=Number(d?.xau?.price);
+  if(Number.isFinite(p)&&p>0)return p;
+  throw new Error("XAUS altın fiyatı bulunamadı");
 }
+
 async function getCrypto(ids,currencies){
   if(!ids.length)return {};
   const d=await fetchFirst([
@@ -220,55 +220,85 @@ async function getCustomPrice(){
   if(p)return p;
   throw new Error("Sayfada sayısal fiyat bulunamadı");
 }
-async function updateInvestments(){
-  const list=db.investments||[];
-  if(!list.length){renderReport();return}
-  const now=Date.now();
-  const groups={};
-  list.forEach(x=>{const key=x.type+":"+investmentCurrency(x);(groups[key]??=[]).push(x)});
-  let success=0;
-  for(const [key,items] of Object.entries(groups)){
-    const [type,currency]=key.split(":");
+
+async function getExchangeRate(pair,currency){
+  const [from,to]=pair.split("/").map(x=>x.trim().toUpperCase());
+  if(!from||!to)throw new Error("Döviz kodu hatalı");
+  if(from===to)return 1;
+  // Frankfurter is reliable for reference FX, not tick-by-tick trading prices.
+  const d=await fetchJson("https://api.frankfurter.dev/v2/rate/"+encodeURIComponent(from)+"/"+encodeURIComponent(to));
+  const p=Number(d.rate);
+  if(p>0)return p;
+  throw new Error("Döviz fiyatı yok");
+}
+async function getYahooQuote(symbol){
+  const urls=[
+    "https://query1.finance.yahoo.com/v8/finance/chart/"+encodeURIComponent(symbol)+"?range=1d&interval=1m",
+    "https://query2.finance.yahoo.com/v8/finance/chart/"+encodeURIComponent(symbol)+"?range=1d&interval=1m"
+  ];
+  for(const u of urls){
     try{
-      if(type==="gold"){
-        let p=null;
-        if(db.settings.customPriceUrl) {
-          try{ p=await getCustomPrice(); }catch(e){ p=null; }
-        }
-        if(!(Number.isFinite(p)&&p>0)) p=await getGold(currency);
-        if(Number.isFinite(p)&&p>0)items.forEach(x=>{x.livePrice=p;x.liveUpdatedAt=now;success++});
-      }else if(type==="crypto"){
-        const ids=[...new Set(items.map(x=>x.symbol.trim().toLowerCase()).filter(Boolean))];
-        const prices=await getCrypto(ids,[currency.toLowerCase()]);
-        items.forEach(x=>{const p=Number(prices[x.symbol.trim().toLowerCase()]?.[currency.toLowerCase()]??prices[x.symbol.trim().toLowerCase()]?.usd);if(Number.isFinite(p)&&p>0){x.livePrice=p;x.liveUpdatedAt=now;success++}});
-      }else if(type==="currency"){
-        const symbols=[...new Set(items.map(x=>x.symbol.trim().toUpperCase()).filter(Boolean))];
-        for(const sym of symbols){
-          if(sym===currency){items.filter(x=>x.symbol.trim().toUpperCase()===sym).forEach(x=>{x.livePrice=1;x.liveUpdatedAt=now;success++});continue}
-          const d=await fetchJson("https://api.frankfurter.dev/v2/rate/"+encodeURIComponent(sym)+"/"+encodeURIComponent(currency));
-          const p=Number(d.rate);
-          items.filter(x=>x.symbol.trim().toUpperCase()===sym).forEach(x=>{if(p>0){x.livePrice=p;x.liveUpdatedAt=now;success++}});
-        }
-      }else if(type==="stock"||type==="fund"){
-        for(const x of items){
-          if(!x.symbol)continue;
-          try{
-            const d=await fetchFirst([
-              "https://query1.finance.yahoo.com/v8/finance/chart/"+encodeURIComponent(x.symbol)+"?range=1d&interval=1m",
-              "https://query2.finance.yahoo.com/v8/finance/chart/"+encodeURIComponent(x.symbol)+"?range=1d&interval=1m"
-            ]);
-            const r=d.chart?.result?.[0], p=Number(r?.meta?.regularMarketPrice);
-            if(p>0){x.livePrice=p;x.liveUpdatedAt=now;success++}
-          }catch(e){}
-        }
-      }
+      const d=await fetchJson(u);
+      const r=d.chart?.result?.[0], p=Number(r?.meta?.regularMarketPrice ?? r?.meta?.previousClose);
+      if(p>0)return p;
     }catch(e){}
   }
-  save();
-  render();
-  $("status").textContent=success
-    ? `Yatırımlar güncellendi · ${success} fiyat`
-    : "Fiyat sağlayıcılarına ulaşılamadı · son fiyatlar korunuyor";
+  throw new Error("Borsa fiyatı alınamadı");
+}
+async function getCryptoQuote(symbol,currency){
+  const id=symbol.trim().toLowerCase();
+  const vs=currency.toLowerCase();
+  const d=await getCrypto([id],[vs]);
+  const p=Number(d[id]?.[vs]);
+  if(p>0)return p;
+  throw new Error("Kripto kodu CoinGecko ID olmalı");
+}
+async function getMetalQuote(currency,metal="gold"){
+  if(metal==="gold"){
+    const d=await fetchJson("https://api.goldprice.dev/v1/carat?currency="+encodeURIComponent(currency));
+    const p=Number(d.price_gram_24k);
+    if(p>0)return p;
+  }
+  throw new Error("Metal fiyatı alınamadı");
+}
+function marketSymbol(x){
+  const s=(x.symbol||"").trim();
+  if(x.type==="currency"){
+    if(s.includes("/"))return s;
+    return s+"/"+(x.currency||"TRY");
+  }
+  return s;
+}
+async function quoteInvestment(x){
+  const c=investmentCurrency(x);
+  if(x.type==="gold")return getMetalQuote(c,"gold");
+  if(x.type==="currency")return getExchangeRate(marketSymbol(x),c);
+  if(x.type==="crypto")return getCryptoQuote(x.symbol,c);
+  if(x.type==="stock"||x.type==="fund")return getYahooQuote(x.symbol);
+  return null;
+}
+async function updateInvestments(){
+  const list=db.investments||[];
+  if(!list.length){$("status").textContent="Yatırım yok";return}
+  const now=Date.now(), results=[];
+  // Each instrument is independent. One broken market source must not stop the rest.
+  for(const x of list){
+    try{
+      const p=await quoteInvestment(x);
+      if(Number.isFinite(p)&&p>0){
+        x.livePrice=p;x.liveUpdatedAt=now;x.liveProvider=x.type;
+        results.push({id:x.id,ok:true});
+      }else results.push({id:x.id,ok:false});
+    }catch(e){
+      x.liveError=String(e?.message||"Fiyat alınamadı");
+      results.push({id:x.id,ok:false});
+    }
+  }
+  save();render();
+  const ok=results.filter(x=>x.ok).length, total=results.length;
+  $("status").textContent=ok===total
+    ? `Tüm yatırımlar güncel · ${ok}/${total}`
+    : `${ok}/${total} yatırım güncellendi · diğerleri son fiyatı koruyor`;
 }
 function startInvestmentRefresh(){
   clearInterval(investmentTimer);
@@ -344,6 +374,7 @@ function renderSettings(){
   $("settingCurrency").value=s.currency||"TRY";
   $("settingTheme").value=s.theme||"system";
   $("settingRefresh").value=String(s.refreshSeconds||30);
+  $("settingPriceSource").value=s.priceSource||"builtin";
   $("settingPriceUrl").value=s.customPriceUrl||"";
   $("settingPriceMode").value=s.customPriceMode||"auto";
   $("settingPriceSelector").value=s.customPriceSelector||"";
@@ -368,6 +399,7 @@ $("saveSettings").onclick=()=>{
   db.settings.theme=$("settingTheme").value;
   db.settings.refreshSeconds=Number($("settingRefresh").value)||30;
   db.settings.autoUpdate=$("settingAutoUpdate").checked;
+  db.settings.priceSource=$("settingPriceSource").value;
   db.settings.customPriceUrl=$("settingPriceUrl").value.trim();
   db.settings.customPriceMode=$("settingPriceMode").value;
   db.settings.customPriceSelector=$("settingPriceSelector").value.trim();
@@ -388,7 +420,7 @@ $("importDataBtn").onclick=()=>$("importData").click();
 $("importData").addEventListener("change",async e=>{
   const f=e.target.files[0];if(!f)return;
   try{const x=JSON.parse(await f.text());if(!x||typeof x!=="object"||!Array.isArray(x.expenses))throw new Error();
-    db={...db,...x};db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:30,autoUpdate:true,...(x.settings||{})};save();applyTheme();render();startInvestmentRefresh();toast("Yedek yüklendi");
+    db={...db,...x};db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:30,autoUpdate:true,priceSource:"builtin",...(x.settings||{})};save();applyTheme();render();startInvestmentRefresh();toast("Yedek yüklendi");
   }catch(err){toast("Yedek dosyası geçersiz");}e.target.value="";
 });
 $("clearData").onclick=()=>{
@@ -749,3 +781,15 @@ applyTheme();
 render();
 startInvestmentRefresh();
 })();
+const invType=$("investmentType");
+if(invType){
+  const updateInvestmentHelp=()=>{
+    const t=invType.value, el=$("investmentHelp");
+    if(!el)return;
+    el.textContent=t==="gold"?"Kod gerekmez · gram altın":t==="currency"?"Örn: USD/TRY veya USD":"";
+    if(t==="crypto")el.textContent="CoinGecko ID kullan: bitcoin, ethereum, tether";
+    if(t==="stock")el.textContent="Borsa sembolü: AAPL, MSFT, THYAO.IS vb.";
+    if(t==="fund")el.textContent="Fon/borsa sembolü veri kaynağına uygun olmalı.";
+  };
+  invType.addEventListener("change",updateInvestmentHelp);updateInvestmentHelp();
+}

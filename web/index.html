@@ -78,7 +78,7 @@
         <option value="stock">Hisse Senedi</option><option value="fund">Fon</option><option value="manual">Diğer</option>
       </select>
       <input id="investmentName" required placeholder="Yatırım adı (örn. Gram Altın / Bitcoin)">
-      <input id="investmentSymbol" placeholder="Kod (BTC: bitcoin, döviz: USD, hisse: AAPL)">
+      <input id="investmentSymbol" placeholder="Kod (BTC: bitcoin, döviz: USD, hisse: AAPL)"><small id="investmentHelp" class="field-help">Örn: AAPL, BTC, USD/TRY</small>
       <small class="field-help">Altın için kod boş bırakılabilir. Kriptoda CoinGecko ID kullanılır.</small>
       <input id="investmentQuantity" type="number" min="0" step="0.00000001" required placeholder="Miktar">
       <input id="investmentBuyPrice" type="number" min="0" step="0.00000001" placeholder="Alış birim fiyatı">
@@ -116,7 +116,11 @@
       <label>Yatırım fiyat sıklığı<select id="settingRefresh"><option value="30">30 saniye</option><option value="60">1 dakika</option><option value="120">2 dakika</option><option value="300">5 dakika</option></select></label>
       <label class="checkline"><input type="checkbox" id="settingAutoUpdate"> Yatırım fiyatlarını otomatik güncelle</label>
     </div>
-    <div class="settings-section"><h4>Özel yatırım fiyat kaynağı</h4>
+    <div class="settings-section"><h4>Yatırım fiyat sağlayıcısı</h4>
+      <p class="muted">Varsayılan kaynak XAUS canlı altın verisidir. Tarayıcıdan doğrudan çalışır ve API anahtarı istemez. Kendi API kaynağını kullanmak istersen Özel kaynak seçebilirsin.</p>
+      <label>Fiyat kaynağı<select id="settingPriceSource"><option value="builtin">Otomatik / XAUS (önerilen)</option><option value="custom">Özel site / API</option></select></label>
+    </div>
+    <div class="settings-section" id="customPriceSettings"><h4>Özel yatırım fiyat kaynağı</h4>
       <p class="muted">Özellikle altın için kullandığın sitenin fiyatını otomatik çekmek için. URL'yi ve gerekiyorsa CSS seçiciyi/JSON yolunu gir.</p>
       <label>Site / API linki<input id="settingPriceUrl" type="url" placeholder="https://ornek.com/altin"></label>
       <label>Kaynak türü<select id="settingPriceMode"><option value="auto">Otomatik</option><option value="html">Web sayfası</option><option value="json">JSON / API</option></select></label>
