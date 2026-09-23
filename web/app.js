@@ -10,7 +10,8 @@ let db={
   expenses:[],
   investments:[],
   vehicles:[],
-  bills:[]
+  bills:[],
+  expenseCategories:["Market","Yakıt","Fatura","Sağlık","Kira","Alışveriş","Restoran","Eğitim","Diğer"]
 };
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
@@ -41,6 +42,7 @@ function load(){
       if(x && typeof x==="object") db={...db,...x};
     }catch(e){}
   }
+  if(!Array.isArray(db.expenseCategories)||!db.expenseCategories.length)db.expenseCategories=["Market","Yakıt","Fatura","Sağlık","Kira","Alışveriş","Restoran","Eğitim","Diğer"];
   for(const k of ["members","accounts","expenses","investments","vehicles","bills"]){
     if(!Array.isArray(db[k]))db[k]=[];
   }
@@ -213,7 +215,41 @@ $("accountEditForm").addEventListener("submit",e=>{
 
 $("openVehicles").onclick=()=>{page("more");alert("Araç modülü bir sonraki aşamada bağlanacak.")};
 $("openBills").onclick=()=>{page("more");alert("Fatura modülü bir sonraki aşamada bağlanacak.")};
-$("addExpense").onclick=()=>alert("Harcama modülü bir sonraki aşamada bağlanacak.");
+$("addExpense").onclick=()=>{
+  const m=$("expenseMember");
+  m.innerHTML=db.members.map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("");
+  $("expenseCategory").innerHTML=db.expenseCategories.map(x=>`<option>${escapeHtml(x)}</option>`).join("");
+  $("expenseAccount").innerHTML=db.accounts.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join("");
+  $("expenseDate").value=new Date().toISOString().slice(0,10);
+  openModal("expenseModal");
+};
+$("expenseForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const title=$("expenseTitle").value.trim();
+  const amount=Number($("expenseAmount").value);
+  if(!title || !Number.isFinite(amount) || amount<=0)return;
+  const accountId=$("expenseAccount").value;
+  const account=db.accounts.find(x=>x.id===accountId);
+  const currency=$("expenseCurrency").value;
+  db.expenses.push({
+    id:uid(),
+    title,
+    amount,
+    currency,
+    member:$("expenseMember").value||"",
+    category:$("expenseCategory").value||"Diğer",
+    accountId,
+    payment:account?account.name:"",
+    date:$("expenseDate").value||new Date().toISOString().slice(0,10),
+    note:$("expenseNote").value.trim()
+  });
+  if(account && account.currency===currency) account.balance-=amount;
+  save();
+  $("expenseForm").reset();
+  closeModal("expenseModal");
+  render();
+});
+
 $("addInvestment").onclick=()=>alert("Yatırım modülü bir sonraki aşamada bağlanacak.");
 
 load();

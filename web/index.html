@@ -90,6 +90,22 @@
   </div>
 </div>
 
+<div class="modal" id="expenseModal" hidden>
+  <div class="modalbox"><h3>Harcama Ekle</h3>
+    <form id="expenseForm">
+      <input id="expenseTitle" required placeholder="Harcama açıklaması">
+      <input id="expenseAmount" required type="number" step="0.01" min="0" placeholder="Tutar">
+      <select id="expenseCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select>
+      <label>Üye</label><select id="expenseMember"></select>
+      <label>Kategori</label><select id="expenseCategory"></select>
+      <label>Ödeme hesabı</label><select id="expenseAccount"></select>
+      <label>Tarih</label><input id="expenseDate" type="date">
+      <textarea id="expenseNote" rows="3" placeholder="Not (isteğe bağlı)"></textarea>
+      <div class="row"><button type="button" data-close="expenseModal">İptal</button><button class="primary" type="submit">Kaydet</button></div>
+    </form>
+  </div>
+</div>
+
 <div class="modal" id="listModal" hidden>
   <div class="modalbox"><h3 id="listTitle"></h3><div id="listBody"></div>
     <div class="row"><button data-close="listModal">Kapat</button><button class="primary" id="listAdd">+ Ekle</button></div>
