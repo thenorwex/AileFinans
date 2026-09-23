@@ -52,7 +52,7 @@ function load(){
   for(const k of ["members","accounts","expenses","investments","vehicles","bills","incomes"]){
     if(!Array.isArray(db[k]))db[k]=[];
   }
-  db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:30,autoUpdate:true,...(db.settings||{})};
+  db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:30,autoUpdate:true,customPriceUrl:"",customPriceMode:"auto",customPriceSelector:"",customPriceJsonPath:"",customPriceRegex:"",... (db.settings||{})};
 }
 
 function fileToDataUrl(file){
@@ -150,6 +150,76 @@ async function getCrypto(ids,currencies){
   for(const id of ids)out[id]=d[id]||{};
   return out;
 }
+
+function getByPath(obj,path){
+  if(!path)return obj;
+  return path.split(".").filter(Boolean).reduce((v,k)=>v==null?undefined:v[k],obj);
+}
+function parsePriceText(text){
+  if(text==null)return null;
+  const cleaned=String(text).replace(/\s/g,"").replace(/[₺$€£]/g,"");
+  const matches=cleaned.match(/-?\d+(?:[.,]\d+)?/g);
+  if(!matches?.length)return null;
+  // Prefer the last numeric value, which is usually the displayed price in a price element.
+  const raw=matches[matches.length-1];
+  const normalized=raw.includes(",")&&raw.includes(".")
+    ? (raw.lastIndexOf(",")>raw.lastIndexOf(".") ? raw.replace(/\./g,"").replace(",",".") : raw.replace(/,/g,""))
+    : raw.replace(",",".");
+  const n=Number(normalized);
+  return Number.isFinite(n)&&n>0?n:null;
+}
+async function getCustomPrice(){
+  const s=db.settings||{};
+  if(!s.customPriceUrl)return null;
+  const url=withCacheBust(s.customPriceUrl);
+  let text="";
+  let contentType="";
+  const directAndProxy=[
+    url,
+    "https://api.allorigins.win/raw?url="+encodeURIComponent(url),
+    "https://corsproxy.io/?url="+encodeURIComponent(url)
+  ];
+  let last=null;
+  for(const u of directAndProxy){
+    try{
+      const ctrl=new AbortController(), t=setTimeout(()=>ctrl.abort(),12000);
+      try{
+        const r=await fetch(u,{cache:"no-store",signal:ctrl.signal});
+        if(!r.ok)throw new Error("HTTP "+r.status);
+        contentType=(r.headers.get("content-type")||"").toLowerCase();
+        text=await r.text();
+        break;
+      }finally{clearTimeout(t)}
+    }catch(e){last=e}
+  }
+  if(!text)throw last||new Error("Özel fiyat kaynağına ulaşılamadı");
+
+  const mode=s.customPriceMode||"auto";
+  if(mode==="json" || (mode==="auto" && /json/i.test(contentType))){
+    const data=JSON.parse(text);
+    const value=getByPath(data,s.customPriceJsonPath||"");
+    const p=parsePriceText(typeof value==="object"?JSON.stringify(value):value);
+    if(p)return p;
+    throw new Error("JSON yolunda fiyat bulunamadı");
+  }
+
+  const doc=new DOMParser().parseFromString(text,"text/html");
+  if(s.customPriceSelector){
+    const el=doc.querySelector(s.customPriceSelector);
+    const p=parsePriceText(el?.textContent);
+    if(p)return p;
+    throw new Error("CSS seçicide fiyat bulunamadı");
+  }
+  if(s.customPriceRegex){
+    const m=text.match(new RegExp(s.customPriceRegex,"i"));
+    const p=parsePriceText(m?.[1]||m?.[0]);
+    if(p)return p;
+    throw new Error("Regex ile fiyat bulunamadı");
+  }
+  const p=parsePriceText(doc.body?.innerText||text);
+  if(p)return p;
+  throw new Error("Sayfada sayısal fiyat bulunamadı");
+}
 async function updateInvestments(){
   const list=db.investments||[];
   if(!list.length){renderReport();return}
@@ -161,7 +231,11 @@ async function updateInvestments(){
     const [type,currency]=key.split(":");
     try{
       if(type==="gold"){
-        const p=await getGold(currency);
+        let p=null;
+        if(db.settings.customPriceUrl) {
+          try{ p=await getCustomPrice(); }catch(e){ p=null; }
+        }
+        if(!(Number.isFinite(p)&&p>0)) p=await getGold(currency);
         if(Number.isFinite(p)&&p>0)items.forEach(x=>{x.livePrice=p;x.liveUpdatedAt=now;success++});
       }else if(type==="crypto"){
         const ids=[...new Set(items.map(x=>x.symbol.trim().toLowerCase()).filter(Boolean))];
@@ -269,7 +343,12 @@ function renderSettings(){
   $("settingAppName").value=s.appName||"Aile Finans";
   $("settingCurrency").value=s.currency||"TRY";
   $("settingTheme").value=s.theme||"system";
-  $("settingRefresh").value=String(s.refreshSeconds||60);
+  $("settingRefresh").value=String(s.refreshSeconds||30);
+  $("settingPriceUrl").value=s.customPriceUrl||"";
+  $("settingPriceMode").value=s.customPriceMode||"auto";
+  $("settingPriceSelector").value=s.customPriceSelector||"";
+  $("settingPriceJsonPath").value=s.customPriceJsonPath||"";
+  $("settingPriceRegex").value=s.customPriceRegex||"";
   $("settingAutoUpdate").checked=s.autoUpdate!==false;
   $("settingCategories").value=(db.expenseCategories||[]).join(", ");
   $("appSubtitle").textContent=s.appName==="Aile Finans"?"Aile bütçesi":"Finans takip";
@@ -289,6 +368,11 @@ $("saveSettings").onclick=()=>{
   db.settings.theme=$("settingTheme").value;
   db.settings.refreshSeconds=Number($("settingRefresh").value)||30;
   db.settings.autoUpdate=$("settingAutoUpdate").checked;
+  db.settings.customPriceUrl=$("settingPriceUrl").value.trim();
+  db.settings.customPriceMode=$("settingPriceMode").value;
+  db.settings.customPriceSelector=$("settingPriceSelector").value.trim();
+  db.settings.customPriceJsonPath=$("settingPriceJsonPath").value.trim();
+  db.settings.customPriceRegex=$("settingPriceRegex").value.trim();
   db.expenseCategories=$("settingCategories").value.split(",").map(x=>x.trim()).filter(Boolean);
   save();applyTheme();startInvestmentRefresh();render();closeModal("settingsModal");toast("Ayarlar kaydedildi");
 };
