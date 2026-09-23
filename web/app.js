@@ -52,7 +52,7 @@ function load(){
   for(const k of ["members","accounts","expenses","investments","vehicles","bills","incomes"]){
     if(!Array.isArray(db[k]))db[k]=[];
   }
-  db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:60,autoUpdate:true,...(db.settings||{})};
+  db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:30,autoUpdate:true,...(db.settings||{})};
 }
 
 function fileToDataUrl(file){
@@ -81,13 +81,40 @@ function investmentCard(x){
   const status=x.liveUpdatedAt?`<span class="live-dot"></span> Güncellendi ${new Date(x.liveUpdatedAt).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}`:`<span class="muted">Fiyat bekleniyor</span>`;
   return `<div class="item investment-card"><span><b>${escapeHtml(x.name)}</b><br><span class="muted">${investmentTypeLabel[x.type]||"Diğer"} · ${qty}${x.type==="gold"?" g":""}</span><br><small class="live-status">${status}</small></span><span class="investment-value"><b>${value==null?"—":money(value,c)}</b><br>${change}</span></div>`;
 }
+function withCacheBust(url){
+  const sep=url.includes("?")?"&":"?";
+  return url+sep+"_afcb="+Date.now();
+}
 async function fetchJson(url,timeout=10000){
-  const ctrl=new AbortController(), t=setTimeout(()=>ctrl.abort(),timeout);
+  const directUrl=withCacheBust(url);
+  let directError=null;
   try{
-    const r=await fetch(url,{cache:"no-store",signal:ctrl.signal});
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    return await r.json();
-  }finally{clearTimeout(t)}
+    const ctrl=new AbortController(), t=setTimeout(()=>ctrl.abort(),timeout);
+    try{
+      const r=await fetch(directUrl,{cache:"no-store",signal:ctrl.signal});
+      if(!r.ok)throw new Error("HTTP "+r.status);
+      return await r.json();
+    }finally{clearTimeout(t)}
+  }catch(e){directError=e}
+
+  // The app is often opened as file://. Several market APIs intentionally
+  // do not expose browser CORS, so use public CORS relays as a fallback.
+  const proxied=[
+    "https://api.allorigins.win/raw?url="+encodeURIComponent(directUrl),
+    "https://corsproxy.io/?url="+encodeURIComponent(directUrl)
+  ];
+  let last=directError;
+  for(const u of proxied){
+    try{
+      const ctrl=new AbortController(), t=setTimeout(()=>ctrl.abort(),timeout);
+      try{
+        const r=await fetch(u,{cache:"no-store",signal:ctrl.signal});
+        if(!r.ok)throw new Error("Proxy HTTP "+r.status);
+        return await r.json();
+      }finally{clearTimeout(t)}
+    }catch(e){last=e}
+  }
+  throw last||new Error("Fiyat kaynağına ulaşılamadı");
 }
 async function fetchFirst(urls){
   let last=null;
@@ -165,13 +192,15 @@ async function updateInvestments(){
   }
   save();
   render();
-  $("status").textContent=success?"Yatırımlar güncellendi":"Son fiyatlar korunuyor";
+  $("status").textContent=success
+    ? `Yatırımlar güncellendi · ${success} fiyat`
+    : "Fiyat sağlayıcılarına ulaşılamadı · son fiyatlar korunuyor";
 }
 function startInvestmentRefresh(){
   clearInterval(investmentTimer);
   if(db.settings.autoUpdate!==false){
     updateInvestments();
-    investmentTimer=setInterval(updateInvestments,Math.max(30,Number(db.settings.refreshSeconds)||60)*1000);
+    investmentTimer=setInterval(updateInvestments,Math.max(30,Number(db.settings.refreshSeconds)||30)*1000);
   }
 }
 function render(){
@@ -258,7 +287,7 @@ $("saveSettings").onclick=()=>{
   db.settings.appName=$("settingAppName").value.trim()||"Aile Finans";
   db.settings.currency=$("settingCurrency").value;
   db.settings.theme=$("settingTheme").value;
-  db.settings.refreshSeconds=Number($("settingRefresh").value)||60;
+  db.settings.refreshSeconds=Number($("settingRefresh").value)||30;
   db.settings.autoUpdate=$("settingAutoUpdate").checked;
   db.expenseCategories=$("settingCategories").value.split(",").map(x=>x.trim()).filter(Boolean);
   save();applyTheme();startInvestmentRefresh();render();closeModal("settingsModal");toast("Ayarlar kaydedildi");
@@ -275,7 +304,7 @@ $("importDataBtn").onclick=()=>$("importData").click();
 $("importData").addEventListener("change",async e=>{
   const f=e.target.files[0];if(!f)return;
   try{const x=JSON.parse(await f.text());if(!x||typeof x!=="object"||!Array.isArray(x.expenses))throw new Error();
-    db={...db,...x};db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:60,autoUpdate:true,...(x.settings||{})};save();applyTheme();render();startInvestmentRefresh();toast("Yedek yüklendi");
+    db={...db,...x};db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:30,autoUpdate:true,...(x.settings||{})};save();applyTheme();render();startInvestmentRefresh();toast("Yedek yüklendi");
   }catch(err){toast("Yedek dosyası geçersiz");}e.target.value="";
 });
 $("clearData").onclick=()=>{
