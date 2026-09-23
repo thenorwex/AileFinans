@@ -58,8 +58,8 @@ function render(){
   renderHome();renderExpenses();renderInvestments();renderVehicles();renderBills();renderReports();renderSettings();
 }
 function navigate(page){currentPage=page;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.dataset.page===page));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));closeMenu();window.scrollTo({top:0,behavior:'smooth'});if(page==='home')refreshWeather()}
-function openMenu(){$('sideNav').classList.add('open');$('menuOverlay').classList.add('show');$('sideNav').setAttribute('aria-hidden','false')}
-function closeMenu(){$('sideNav').classList.remove('open');$('menuOverlay').classList.remove('show');$('sideNav').setAttribute('aria-hidden','true')}
+function openMenu(){document.body.classList.add('menu-open');$('sideNav').classList.add('open');$('menuOverlay').classList.add('show');$('sideNav').setAttribute('aria-hidden','false')}
+function closeMenu(){document.body.classList.remove('menu-open');$('sideNav').classList.remove('open');$('menuOverlay').classList.remove('show');$('sideNav').setAttribute('aria-hidden','true')}
 function renderHome(){
   const ym=currentMonth(), incomes=db.incomes.filter(x=>monthKey(x.date)===ym), expenses=db.expenses.filter(x=>monthKey(x.date)===ym);
   const inc=sum(incomes), exp=sum(expenses), inv=db.investments.reduce((s,x)=>s+(x.livePrice>0?x.livePrice*x.quantity:0),0);
@@ -75,22 +75,35 @@ function renderHome(){
 function renderDailyHistory(){
   const d=new Date(),md=`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const events={
-    '01-01':['Yeni yılın ilk günü.','Birçok ülkede yeni takvim yılının başlangıcı olarak kutlanır.'],
-    '02-14':['Sevgililer Günü.','Dünyanın birçok yerinde sevgi ve yakın ilişkiler temasıyla anılır.'],
-    '03-08':['Dünya Kadınlar Günü.','Kadınların toplumsal, ekonomik ve kültürel katkılarına dikkat çekilen uluslararası gün.'],
-    '04-23':['23 Nisan.','Türkiye’de Ulusal Egemenlik ve Çocuk Bayramı olarak kutlanır.'],
-    '05-01':['1 Mayıs.','Emek ve Dayanışma Günü olarak anılır.'],
-    '05-19':['19 Mayıs.','Atatürk’ü Anma, Gençlik ve Spor Bayramı.'],
-    '06-05':['Dünya Çevre Günü.','Çevre sorunlarına yönelik farkındalığı artırmayı amaçlayan uluslararası gün.'],
-    '07-15':['15 Temmuz.','Türkiye’de Demokrasi ve Millî Birlik Günü olarak anılır.'],
-    '08-30':['30 Ağustos.','Zafer Bayramı olarak kutlanır.'],
-    '10-29':['29 Ekim.','Türkiye Cumhuriyeti’nin kuruluşunun yıl dönümüdür.'],
-    '11-10':['10 Kasım.','Mustafa Kemal Atatürk’ün vefatının yıl dönümünde anma törenleri yapılır.'],
-    '12-10':['İnsan Hakları Günü.','İnsan Hakları Evrensel Beyannamesi’nin kabul edildiği günün yıldönümüdür.']
+    '01-01':[['Yeni yılın ilk günü.','Birçok ülkede yeni takvim yılının başlangıcı olarak kutlanır.']],
+    '02-14':[['Sevgililer Günü.','Dünyanın birçok yerinde sevgi ve yakın ilişkiler temasıyla anılır.']],
+    '03-08':[['Dünya Kadınlar Günü.','Kadınların toplumsal, ekonomik ve kültürel katkılarına dikkat çekilen uluslararası gün.']],
+    '04-23':[['23 Nisan.','Türkiye’de Ulusal Egemenlik ve Çocuk Bayramı olarak kutlanır.']],
+    '05-01':[['1 Mayıs.','Emek ve Dayanışma Günü olarak anılır.']],
+    '05-19':[['19 Mayıs.','Atatürk’ü Anma, Gençlik ve Spor Bayramı.']],
+    '06-05':[['Dünya Çevre Günü.','Çevre sorunlarına yönelik farkındalığı artırmayı amaçlayan uluslararası gün.']],
+    '07-15':[['15 Temmuz.','Türkiye’de Demokrasi ve Millî Birlik Günü olarak anılır.']],
+    '08-30':[['30 Ağustos.','Zafer Bayramı olarak kutlanır.']],
+    '09-23':[
+      ['Neptün keşfedildi — 1846','Johann Gottfried Galle ve Heinrich d’Arrest, Urbain Le Verrier’in hesapladığı konuma çok yakın bir yerde Neptün’ü gözlemledi. Kaynak: NASA / ESA.'],
+      ['Flamborough Head Deniz Savaşı — 1779','Amerikan Bağımsızlık Savaşı sırasında John Paul Jones komutasındaki Bonhomme Richard ile HMS Serapis arasındaki ünlü deniz savaşı bu tarihte gerçekleşti.'],
+      ['Assaye Muharebesi — 1803','İkinci Anglo-Maratha Savaşı sırasında Hindistan’daki Assaye Muharebesi 23 Eylül 1803’te yapıldı.']
+    ],
+    '10-29':[['29 Ekim.','Türkiye Cumhuriyeti’nin kuruluşunun yıl dönümüdür.']],
+    '11-10':[['10 Kasım.','Mustafa Kemal Atatürk’ün vefatının yıl dönümünde anma törenleri yapılır.']],
+    '12-10':[['İnsan Hakları Günü.','İnsan Hakları Evrensel Beyannamesi’nin kabul edildiği günün yıldönümüdür.']]
   };
-  const list=events[md]||['Bugünün notu','Bugün için tanımlanmış özel bir ulusal gün bulunmuyor. Tarih boyunca farklı olaylar bu güne denk gelmiştir.'];
-  $('dailyHistory').innerHTML=`<div class="history-event"><b>${esc(list[0])}</b><span class="muted">${esc(list[1])}</span></div><div class="history-event"><b>Günün önerisi</b><span class="muted">Bugünkü gelir ve giderlerini kaydet, ay sonu raporunda karşılaştır.</span></div>`;
+  const list=events[md]||[['Bugünün notu','Bugün için tanımlanmış özel bir ulusal gün bulunmuyor. Tarih boyunca farklı olaylar bu güne denk gelmiştir.']];
+  const history=list.map(([title,desc])=>`<div class="history-event"><b>${esc(title)}</b><span class="muted">${esc(desc)}</span></div>`).join('');
+  const tip=[
+    'Bugünkü gelir ve giderlerini kaydet, ay sonu raporunda karşılaştır.',
+    'Yakıt, fatura ve yatırım kayıtlarını aynı gün içinde güncel tut.',
+    'Bugünün harcamalarını kategorilere ayırmak ay sonu raporunu daha anlamlı yapar.',
+    'Yatırımlarındaki manuel fiyatları güncellemeden önce alış maliyetini kontrol et.'
+  ][d.getDate()%4];
+  $('dailyHistory').innerHTML=history+`<div class="history-event"><b>Günün önerisi</b><span class="muted">${esc(tip)}</span></div>`;
 }
+
 async function refreshWeather(){
   const city=(db.settings.city||'Antalya').trim()||'Antalya';$('weatherLocation').textContent=city;$('weatherBox').innerHTML='<span class="muted">Hava durumu alınıyor...</span>';
   try{const g=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=tr&format=json`).then(r=>{if(!r.ok)throw Error();return r.json()});const p=g.results?.[0];if(!p)throw Error();const w=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto`).then(r=>{if(!r.ok)throw Error();return r.json()});const c=w.current;const map={0:['☀️','Açık'],1:['🌤️','Çoğunlukla açık'],2:['⛅','Parçalı bulutlu'],3:['☁️','Kapalı'],45:['🌫️','Sis'],48:['🌫️','Kırağılı sis'],51:['🌦️','Hafif çiseleme'],61:['🌧️','Yağmurlu'],63:['🌧️','Yağmurlu'],65:['🌧️','Kuvvetli yağmur'],71:['🌨️','Kar'],80:['🌦️','Sağanak'],81:['🌦️','Sağanak'],82:['⛈️','Kuvvetli sağanak'],95:['⛈️','Gök gürültülü']};const info=map[c.weather_code]||['🌡️','Değişken'];$('weatherBox').innerHTML=`<div class="weather-main"><div class="weather-icon">${info[0]}</div><div><div class="weather-temp">${Math.round(c.temperature_2m)}°C</div><b>${info[1]}</b><small class="muted">Hissedilen ${Math.round(c.apparent_temperature)}°C · Rüzgar ${Math.round(c.wind_speed_10m)} km/sa</small></div></div>`;}
@@ -132,7 +145,7 @@ function renderReports(){
 function renderSettings(){const s=db.settings;$('settingAppName').value=s.appName||'Aile Finans';$('settingCurrency').value=s.currency||'TRY';$('settingTheme').value=s.theme||'system';$('settingCity').value=s.city||'Antalya';$('settingCategories').value=db.expenseCategories.join(', ')}
 
 // Menu / navigation
-$('menuToggle').onclick=openMenu;$('menuClose').onclick=closeMenu;$('menuOverlay').onclick=closeMenu;$('sideNav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(b)navigate(b.dataset.page)});
+$('menuToggle').onclick=openMenu;$('menuFab').onclick=openMenu;$('menuClose').onclick=closeMenu;$('menuOverlay').onclick=closeMenu;$('sideNav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(b)navigate(b.dataset.page)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMenu();closeAllModals()}});
 document.addEventListener('click',e=>{
   const close=e.target.closest('[data-close]');if(close){closeModal(close.dataset.close);return}
