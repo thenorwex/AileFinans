@@ -30,3 +30,8 @@ body{padding-bottom:90px}
 .modal[aria-hidden="true"]{display:none!important}
 
 .modal[hidden]{display:none!important;visibility:hidden!important;pointer-events:none!important}
+
+/* v16 clean navigation/modal rules */
+.modal[hidden]{display:none!important}
+.bottom-nav{z-index:9999;pointer-events:auto}
+.bottom-nav button{touch-action:manipulation;pointer-events:auto}

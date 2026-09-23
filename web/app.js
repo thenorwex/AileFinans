@@ -201,10 +201,12 @@ function saveAccount(){
     const a=db.accounts.find(x=>x.id===editAccountId);const old=a.name;
     a.name=name;a.type=type;a.balance=balance;a.currency=currency;
     db.expenses.forEach(x=>{if(x.payment===old)x.payment=name});db.income.forEach(x=>{if(x.account===old)x.account=name});
-    save();closeModal("accountModal");toast("Hesap güncellendi");
+    closeModal("accountModal");
+    try{save();toast("Hesap güncellendi")}catch(err){console.error(err);toast("Hesap kaydedildi ancak ekran yenilenemedi")}
   }else{
     db.accounts.push({id:uid(),name,type,balance,currency});
-    save();closeModal("accountModal");toast("Hesap kaydedildi");
+    closeModal("accountModal");
+    try{save();toast("Hesap kaydedildi")}catch(err){console.error(err);toast("Hesap kaydedildi ancak ekran yenilenemedi")}
   }
 }
 function deleteAccount(id){
@@ -215,7 +217,6 @@ function deleteAccount(id){
   db.accounts=db.accounts.filter(x=>x.id!==id);save();toast("Hesap silindi");
 }
 
-$("accountForm").addEventListener("submit",e=>{e.preventDefault();saveAccount()});
 $("addAccountBtn").onclick=openAccount;
 $("accountList").addEventListener("click",e=>{const ed=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");if(ed)editAccount(ed.dataset.edit);if(del)deleteAccount(del.dataset.delete)});
 $("addMemberBtn").onclick=()=>{ $("memberForm").reset();openModal("memberModal") };
@@ -553,122 +554,66 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 setTimeout(()=>refreshInvestments(),800);
 setInterval(()=>refreshInvestments(),15*60*1000);
 
+/* Aile Finans v16: single-source navigation and modal lifecycle */
+function activateTab(tab){
+  const target=$(tab);
+  if(!target)return false;
+  document.querySelectorAll(".tab-section").forEach(x=>x.classList.remove("active"));
+  target.classList.add("active");
+  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
+  window.scrollTo(0,0);
+  return true;
+}
 
-// v13: reliable modal closing, including iPhone taps.
-document.addEventListener('click',function(e){
-  const close=e.target.closest('[data-close]');
-  if(close){e.preventDefault();e.stopPropagation();closeModal(close.dataset.close);return;}
-  if(e.target.classList && e.target.classList.contains('modal')){closeModal(e.target.id)}
-});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(m=>closeModal(m.id))});
-
-
-/* =========================
-   v14: deterministic navigation + modal lifecycle
-   ========================= */
-(function(){
-  const navTargets = {
-    "Ana Sayfa":"homeSection",
-    "Anasayfa":"homeSection",
-    "Harcamalar":"expensesSection",
-    "Gelir":"incomeSection",
-    "Gelirler":"incomeSection",
-    "Yatırımlar":"investmentsCard",
-    "Raporlar":"reportsSection",
-    "Daha Fazla":"moreSection"
-  };
-
-  function visibleTarget(target){
-    let el=document.getElementById(target);
-    if(el) return el;
-    // Fallback: locate sections/cards by heading text.
-    const heads=[...document.querySelectorAll("h1,h2,h3,.section-title,.card-title")];
-    const hit=heads.find(h=>h.textContent.trim().toLowerCase()===String(target).replace("Section","").toLowerCase());
-    return hit ? (hit.closest(".card,.section,section,main")||hit) : null;
-  }
-
-  function closeEveryModal(){
-    document.querySelectorAll(".modal").forEach(m=>{
-      m.classList.remove("open","show","active");
-      m.removeAttribute("open");
-      m.style.display="none";
-      m.setAttribute("aria-hidden","true");
-    });
-    document.body.classList.remove("modal-open","no-scroll");
-  }
-
-  function openTarget(target){
-    closeEveryModal();
-    let el=visibleTarget(target);
-    if(!el){
-      // Known module aliases
-      if(target==="homeSection") el=document.querySelector("main")||document.body;
-      if(target==="moreSection") el=document.querySelector(".more-section,[id*='more'],#moreMenu");
-      if(target==="expensesSection") el=document.querySelector("#expensesCard,[id*='expense']");
-      if(target==="incomeSection") el=document.querySelector("#incomeCard,[id*='income']");
-      if(target==="reportsSection") el=document.querySelector("#reportsCard,[id*='report']");
-    }
-    if(el){
-      el.classList.add("app-nav-focus");
-      el.scrollIntoView({behavior:"smooth",block:"start"});
-      setTimeout(()=>el.classList.remove("app-nav-focus"),800);
-      return true;
-    }
-    return false;
-  }
-
-  // Capture phase runs before old bubbling handlers, so old handlers cannot break navigation.
-  document.addEventListener("click",function(e){
-    const btn=e.target.closest("[data-app-nav]");
-    if(btn){
-      e.preventDefault(); e.stopImmediatePropagation();
-      openTarget(btn.getAttribute("data-app-nav"));
-      return;
-    }
-    const nav=e.target.closest(".bottom-nav button,.bottom-nav a");
-    if(nav){
-      const text=nav.textContent.trim();
-      const target=navTargets[text]||nav.getAttribute("data-tab")||nav.getAttribute("href");
-      if(target && target!=="#"){
-        e.preventDefault(); e.stopImmediatePropagation();
-        openTarget(target);
-      }
-    }
-  },true);
-
-  // Reliable modal close. Also fixes forms whose old save handler forgot to close.
-  document.addEventListener("click",function(e){
-    const close=e.target.closest("[data-close],.modal .x,.modal-close");
-    if(close){
-      e.preventDefault(); e.stopPropagation();
-      const modal=close.closest(".modal") || document.getElementById(close.dataset.close||"");
-      if(modal){
-        modal.classList.remove("open","show","active");
-        modal.style.display="none";
-        modal.setAttribute("aria-hidden","true");
-      }
-    }
-    if(e.target.classList && e.target.classList.contains("modal")){
-      e.target.classList.remove("open","show","active");
-      e.target.style.display="none";
-      e.target.setAttribute("aria-hidden","true");
-    }
-  },true);
-
-  // Account modal: hard-close after a successful form submit.
-  const accountForm=document.getElementById("accountForm");
-  if(accountForm){
-    accountForm.addEventListener("submit",function(){
-      setTimeout(function(){
-        const modal=document.getElementById("accountModal");
-        if(modal && !document.getElementById("accountName").value.trim()){
-          closeModal("accountModal");
-        }
-      },50);
-    },false);
-  }
-
-  document.addEventListener("keydown",function(e){
-    if(e.key==="Escape") closeEveryModal();
+document.querySelectorAll(".bottom-nav button[data-tab]").forEach(btn=>{
+  btn.addEventListener("click",function(e){
+    e.preventDefault();
+    activateTab(this.dataset.tab);
   });
-})();
+});
+
+// The investment card lives inside the Investments tab, not the More tab.
+const investmentCardV16=$("investmentsCard"), investmentHostV16=$("investmentPageHost");
+if(investmentCardV16 && investmentHostV16 && !investmentHostV16.contains(investmentCardV16)){
+  investmentHostV16.appendChild(investmentCardV16);
+}
+
+// Module shortcuts.
+$("investmentsModuleBtn")?.addEventListener("click",()=>activateTab("investments"));
+$("vehiclesModuleBtn")?.addEventListener("click",()=>{
+  activateTab("more");
+  setTimeout(()=>$("vehiclesCard")?.scrollIntoView({behavior:"smooth",block:"start"}),30);
+});
+$("billsModuleBtn")?.addEventListener("click",()=>{
+  activateTab("more");
+  setTimeout(()=>$("billsCard")?.scrollIntoView({behavior:"smooth",block:"start"}),30);
+});
+$("debtsModuleBtn")?.addEventListener("click",()=>{
+  activateTab("more");
+  setTimeout(()=>$("debtsCard")?.scrollIntoView({behavior:"smooth",block:"start"}),30);
+});
+
+// One and only one modal closer. No capture-phase navigation hacks.
+document.addEventListener("click",function(e){
+  const close=e.target.closest("[data-close]");
+  if(close){
+    e.preventDefault();
+    closeModal(close.dataset.close);
+    return;
+  }
+  const modal=e.target.closest(".modal");
+  if(modal && e.target===modal)closeModal(modal.id);
+});
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape")document.querySelectorAll(".modal").forEach(m=>closeModal(m.id));
+});
+
+// Explicitly close account modal after a successful submit, regardless of render errors.
+$("accountForm")?.addEventListener("submit",function(e){
+  e.preventDefault();
+  saveAccount();
+});
+
+load();
+render();
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
