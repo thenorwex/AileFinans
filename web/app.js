@@ -1,7 +1,7 @@
 (() => {
 "use strict";
 
-const KEY="ailefinans_v24";
+const KEY="ailefinans_v41";
 const $=id=>document.getElementById(id);
 
 let db={
@@ -36,7 +36,7 @@ function save(){
 
 function load(){
   let raw=null;
-  try{raw=localStorage.getItem(KEY)}catch(e){}
+  try{raw=localStorage.getItem(KEY)||localStorage.getItem("ailefinans_v24")}catch(e){}
   if(raw){
     try{
       const x=JSON.parse(raw);
@@ -146,8 +146,15 @@ function render(){
 function renderReport(){
   const ym=new Date().toISOString().slice(0,7);
   const monthName=new Intl.DateTimeFormat("tr-TR",{month:"long",year:"numeric"}).format(new Date());
-  const incomes=(db.incomes||[]).filter(x=>String(x.date||"").slice(0,7)===ym);
-  const expenses=db.expenses.filter(x=>String(x.date||"").slice(0,7)===ym);
+  const selected=$('reportMember')?.value||"";
+  if($('reportMember')){
+    const current=$('reportMember').value;
+    $('reportMember').innerHTML='<option value="">Genel</option>'+db.members.map(m=>`<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+    $('reportMember').value=db.members.includes(current)?current:"";
+  }
+  const filter=x=>!selected || String(x.member||"")===selected;
+  const incomes=(db.incomes||[]).filter(x=>String(x.date||"").slice(0,7)===ym&&filter(x));
+  const expenses=db.expenses.filter(x=>String(x.date||"").slice(0,7)===ym&&filter(x));
   const income=incomes.reduce((s,x)=>s+Number(x.amount||0),0);
   const expense=expenses.reduce((s,x)=>s+Number(x.amount||0),0);
   const net=income-expense;
@@ -155,17 +162,18 @@ function renderReport(){
   const inv=(db.investments||[]).reduce((s,x)=>s+(Number(x.livePrice)>0?Number(x.livePrice)*Number(x.quantity||0):0),0);
   const fuel=(db.vehicleFuelLogs||[]).filter(x=>String(x.date||"").slice(0,7)===ym).reduce((s,x)=>s+Number(x.total||0),0);
   const service=(db.vehicleServices||[]).filter(x=>String(x.date||"").slice(0,7)===ym).reduce((s,x)=>s+Number(x.cost||0),0);
+  const title=selected?`${escapeHtml(selected)} · ${monthName}`:monthName;
   const catRows=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>`<div class="report-row"><span>${escapeHtml(k)}</span><b>${money(v,"TRY")}</b></div>`).join("")||'<div class="empty">Bu ay harcama yok.</div>';
-  $("reportText").innerHTML=`
-    <div class="report-hero"><div><small>${monthName}</small><h3>Net Nakit Akışı</h3><div class="report-big ${net>=0?"gain":"loss"}">${net>=0?"+":""}${money(net,"TRY")}</div></div><span class="report-icon">₺</span></div>
+  $('reportText').innerHTML=`
+    <div class="report-hero"><div><small>${title}</small><h3>${selected?'Kişi Özeti':'Genel Finans Özeti'}</h3><div class="report-big ${net>=0?'gain':'loss'}">${net>=0?'+':''}${money(net,"TRY")}</div></div><span class="report-icon">₺</span></div>
     <div class="report-grid">
       <div class="report-card"><small>Gelir</small><b>${money(income,"TRY")}</b><span>${incomes.length} işlem</span></div>
       <div class="report-card"><small>Gider</small><b>${money(expense,"TRY")}</b><span>${expenses.length} işlem</span></div>
       <div class="report-card"><small>Yatırım Değeri</small><b>${money(inv,"TRY")}</b><span>${db.investments.length} yatırım</span></div>
-      <div class="report-card"><small>Araç Gideri</small><b>${money(fuel+service,"TRY")}</b><span>Yakıt + bakım</span></div>
+      <div class="report-card"><small>Araç Gideri</small><b>${money(selected?0:fuel+service,"TRY")}</b><span>${selected?'Kişiye bağlı araç gideri yok':'Yakıt + bakım'}</span></div>
     </div>
     <div class="report-columns"><div class="panel"><h3>Harcama Dağılımı</h3>${catRows}</div>
-      <div class="panel"><h3>Finans Özeti</h3><div class="report-row"><span>Toplam hesap bakiyesi</span><b>${money(db.accounts.reduce((s,a)=>s+Number(a.balance||0),0),"TRY")}</b></div><div class="report-row"><span>Aile üyesi</span><b>${db.members.length}</b></div><div class="report-row"><span>Araç</span><b>${db.vehicles.length}</b></div><div class="report-row"><span>Yatırım</span><b>${db.investments.length}</b></div></div>
+      <div class="panel"><h3>${selected?'Seçili Kişi':'Genel'} Özeti</h3><div class="report-row"><span>Toplam hesap bakiyesi</span><b>${money(db.accounts.reduce((s,a)=>s+Number(a.balance||0),0),"TRY")}</b></div><div class="report-row"><span>Üye</span><b>${selected?escapeHtml(selected):db.members.length+' kişi'}</b></div><div class="report-row"><span>Araç</span><b>${db.vehicles.length}</b></div><div class="report-row"><span>Yatırım</span><b>${db.investments.length}</b></div></div>
     </div>`;
 }
 function renderSettings(){
@@ -245,15 +253,17 @@ function closeModal(id){
 }
 
 function page(name){
+  if(name==="reports")renderReport();
   document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.page===name));
   document.querySelectorAll("#sideNav button").forEach(x=>x.classList.toggle("active",x.dataset.page===name));
-  if(name==="reports")renderReport();
   window.scrollTo(0,0);
 }
 $("sideNav").addEventListener("click",e=>{
   const b=e.target.closest("button[data-page]"); if(!b)return;
   e.preventDefault(); page(b.dataset.page);
 });
+
+if($("reportMember"))$("reportMember").addEventListener("change",()=>renderReport());
 
 /* ONE and only one member submit listener. */
 $("memberForm").addEventListener("submit",e=>{
@@ -530,29 +540,15 @@ $("expenseForm").addEventListener("submit",async e=>{
   e.preventDefault();
   const title=$("expenseTitle").value.trim();
   const amount=Number($("expenseAmount").value);
-  if(!title || !Number.isFinite(amount) || amount<=0)return;
-  const accountId=$("expenseAccount").value;
+  if(!title || !Number.isFinite(amount) || amount<=0){toast("Harcama adı ve tutarı girilmelidir");return;}
+  const accountId=$("expenseAccount").value||"";
   const account=db.accounts.find(x=>x.id===accountId);
   const photo=await fileToDataUrl($("expensePhoto").files[0]);
-  const currency=$("expenseCurrency").value;
-  db.expenses.push({
-    id:uid(),
-    title,
-    amount,
-    currency,
-    member:$("expenseMember").value||"",
-    category:$("expenseCategory").value||"Diğer",
-    accountId,
-    payment:account?account.name:"",
-    date:$("expenseDate").value||new Date().toISOString().slice(0,10),
-    note:$("expenseNote").value.trim(),
-    photo
-  });
-  if(account && account.currency===currency) account.balance-=amount;
-  save();
-  $("expenseForm").reset();
-  closeModal("expenseModal");
-  render();
+  const currency=$("expenseCurrency").value||"TRY";
+  db.expenses.push({id:uid(),title,amount,currency,member:$("expenseMember").value||"",category:$("expenseCategory").value||"Diğer",accountId,payment:account?account.name:"",date:$("expenseDate").value||today(),note:$("expenseNote").value.trim(),photo});
+  if(account && account.currency===currency)account.balance-=amount;
+  if(!save()){toast("Harcama kaydedilemedi");return;}
+  $("expenseForm").reset();closeModal("expenseModal");render();toast("Harcama kaydedildi");
 });
 
 $("addInvestment").onclick=()=>{ $("investmentForm").reset(); $("investmentBuyDate").value=new Date().toISOString().slice(0,10); openModal("investmentModal"); };
@@ -592,11 +588,16 @@ if($("manualPriceForm"))$("manualPriceForm").addEventListener("submit",e=>{
 });
 // Bills
 if($("billForm"))$("billForm").addEventListener("submit",e=>{
-  e.preventDefault();const id=$("billId").value||uid(),old=db.bills.findIndex(x=>x.id===id);
-  const item={id,name:$("billName").value.trim(),category:$("billCategory").value,amount:Number($("billAmount").value)||0,currency:$("billCurrency").value||"TRY",dueDate:$("billDueDate").value,recurring:$("billRecurring").checked,period:$("billPeriod").value,paid:old>=0?!!db.bills[old].paid:false};
-  if(old>=0)db.bills[old]=item;else db.bills.push(item);save();closeModal("billModal");render();
+  e.preventDefault();
+  const name=$("billName").value.trim(),amount=Number($("billAmount").value)||0;
+  if(!name||amount<=0){toast("Fatura adı ve tutarı girilmelidir");return;}
+  const id=$("billId").value||uid(),old=db.bills.findIndex(x=>x.id===id);
+  const item={id,name,category:$("billCategory").value||"Diğer",amount,currency:$("billCurrency").value||"TRY",dueDate:$("billDueDate").value||today(),recurring:!!$("billRecurring").checked,period:$("billPeriod").value||"monthly",paid:old>=0?!!db.bills[old].paid:false};
+  if(old>=0)db.bills[old]=item;else db.bills.push(item);
+  if(!save()){toast("Fatura kaydedilemedi");return;}
+  $("billForm").reset();$("billCurrency").value="TRY";$("billPeriod").value="monthly";closeModal("billModal");render();toast("Fatura kaydedildi");
 });
-if($("addBill"))$("addBill").onclick=()=>{$("billId").value="";$("billForm").reset();$("billCurrency").value="TRY";$("billPeriod").value="monthly";openModal("billModal")};
+if($("addBill"))$("addBill").onclick=()=>{$("billId").value="";$('billForm').reset();$('billDueDate').value=today();$('billCurrency').value="TRY";$('billPeriod').value="monthly";openModal("billModal")};
 // Today's historical notes
 const historicalEvents={"01-01":["🎉 Yeni yılın ilk günü.","📅 Yeni bir yılın başlangıcı; finans planını ve hedeflerini gözden geçirmek için iyi bir takvim noktası."],"02-04":["🌍 Dünya Kanser Günü.","🗓️ Sağlık farkındalığı ve erken teşhis konusunda küresel farkındalık günü."],"02-14":["❤️ Sevgililer Günü.","💡 Hediye ve sosyal harcamaları bütçede ayrıca takip etmek için güzel bir gün."],"02-21":["🌐 Uluslararası Anadil Günü."],"03-08":["🌍 Dünya Kadınlar Günü."],"03-18":["🇹🇷 Çanakkale Deniz Zaferi ve Şehitleri Anma Günü."],"03-21":["🌱 Nevruz ve baharın başlangıcı dönemi.","🌞 Kuzey Yarımküre’de mevsimsel geçiş dönemi."],"04-23":["🇹🇷 Ulusal Egemenlik ve Çocuk Bayramı.","🏛️ Türkiye Büyük Millet Meclisinin açılışının yıl dönümü."],"05-01":["🛠️ Emek ve Dayanışma Günü."],"05-19":["🇹🇷 Atatürk’ü Anma, Gençlik ve Spor Bayramı."],"06-05":["🌿 Dünya Çevre Günü.","♻️ Çevre ve sürdürülebilirlik farkındalığı için küresel gün."],"07-15":["🇹🇷 Demokrasi ve Millî Birlik Günü."],"08-30":["🇹🇷 Zafer Bayramı."],"09-23":["🌗 Eylül ekinoksu dönemi.","🍂 Kuzey Yarımküre’de astronomik sonbaharın başlangıcı civarı.","☀️ Ekinoks döneminde gece ve gündüz süreleri birbirine yaklaşır.","📊 Bugün ayrıca yıllık bütçe hedeflerini yılın son çeyreğine göre kontrol etmek için iyi bir takvim noktası."],"10-29":["🇹🇷 Cumhuriyet Bayramı."],"11-10":["🇹🇷 Türkiye’de Mustafa Kemal Atatürk’ü anma günü."],"11-20":["🌍 Dünya Çocuk Hakları Günü."],"12-03":["🌍 Dünya Engelliler Günü."],"12-10":["🌍 İnsan Hakları Günü."],"12-21":["❄️ Aralık gündönümü dönemi; Kuzey Yarımküre’de kış başlangıcı civarı."],"12-31":["🎆 Yılın son günü.","📊 Yıl sonu gelir-gider ve yatırım performansını kapatmak için iyi bir kontrol noktası."]};
 function renderTodayHistory(){

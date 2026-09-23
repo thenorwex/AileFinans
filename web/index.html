@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
-<title>Aile Finans v40</title>
+<title>Aile Finans v41</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body><button id="menuToggle" class="menu-toggle" aria-label="Menüyü aç">☰</button><div id="menuOverlay" class="menu-overlay"></div>
@@ -42,7 +42,7 @@
 
   <section class="tab" data-page="expenses">
     <h2>Harcamalar</h2>
-    <button class="primary" id="addExpense">+ Harcama</button>
+    <button class="primary" id="addExpense" type="button">+ Harcama</button>
     <div id="expenseList"></div>
   </section>
 
@@ -57,11 +57,11 @@
   </section>
 
   <section class="tab" data-page="bills">
-<div class="page-head"><div><h2>Faturalar</h2><p class="muted">Düzenli ve tek seferlik faturalarını takip et.</p></div><button class="primary" id="addBill">+ Fatura</button></div>
+<div class="page-head"><div><h2>Faturalar</h2><p class="muted">Düzenli ve tek seferlik faturalarını takip et.</p></div><button class="primary" id="addBill" type="button">+ Fatura</button></div>
 <div class="stats-grid"><div class="card"><small>Bekleyen</small><b id="billTotal">₺0</b></div><div class="card"><small>Geciken</small><b id="billOverdue">₺0</b></div><div class="card"><small>Fatura adedi</small><b id="billCount">0</b></div></div>
 <div class="card"><div id="billsList" class="list"></div></div></section>
 <section class="tab" data-page="reports">
-    <div class="page-head"><div><h2>Raporlar</h2><p class="muted">Airbnb kazanç ekranı gibi, aile finansının genel görünümü.</p></div><button id="reportMonthBtn">Bu Ay</button></div>
+    <div class="page-head"><div><h2>Raporlar</h2><p class="muted">Kişi seçerek o kişinin finansal hareketlerini, seçimi kaldırarak genel aile toplamını gör.</p></div><div class="report-filters"><label>Kişi<select id="reportMember"><option value="">Genel</option></select></label><button id="reportMonthBtn">Bu Ay</button></div></div>
     <div id="reportText"></div>
   </section>
 
@@ -250,7 +250,7 @@
 <label>Fatura adı<input id="billName" required placeholder="Elektrik"></label>
 <label>Kategori<select id="billCategory"><option>Elektrik</option><option>Su</option><option>Doğalgaz</option><option>İnternet</option><option>Telefon</option><option>Kira</option><option>Sigorta</option><option>Vergi</option><option>Diğer</option></select></label>
 <div class="form-grid"><label>Tutar<input id="billAmount" type="number" step="0.01" min="0" required></label><label>Para birimi<select id="billCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label></div>
-<label>Son ödeme tarihi<input id="billDueDate" type="date" required></label>
+<label>Son ödeme tarihi<input id="billDueDate" type="date"></label>
 <label class="check"><input id="billRecurring" type="checkbox"> Düzenli fatura</label>
 <label>Tekrar sıklığı<select id="billPeriod"><option value="monthly">Aylık</option><option value="weekly">Haftalık</option><option value="yearly">Yıllık</option></select></label>
 <button class="primary" type="submit">Kaydet</button></form></div></div><div class="modal" id="manualPriceModal" hidden><div class="modalbox"><h3>Yatırım Fiyatı Gir</h3><form id="manualPriceForm"><input type="hidden" id="manualPriceId"><label>Fiyat<input id="manualPriceValue" type="number" step="0.0001" min="0" required></label><label>Tarih<input id="manualPriceDate" type="date" required></label><label>Not<input id="manualPriceNote" placeholder="Örn. banka alış fiyatı"></label><div class="row"><button type="button" data-close="manualPriceModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div><script src="app.js"></script>
