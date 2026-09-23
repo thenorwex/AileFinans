@@ -21,6 +21,36 @@ function save(){
   catch(e){console.error(e);toast("Veri kaydedilemedi");return false}
 }
 function load(){
+  // IMPORTANT: once v20 data exists, load that exact database.
+  // Legacy migration is used only when v20 does not exist.
+  try{
+    const current=localStorage.getItem(KEY);
+    if(current){
+      const parsed=JSON.parse(current);
+      if(parsed&&typeof parsed==="object"){
+        db=parsed;
+        db.members=Array.isArray(db.members)?db.members:[];
+        db.accounts=Array.isArray(db.accounts)?db.accounts.map(normalizeAccount):[];
+        db.expenses=Array.isArray(db.expenses)?db.expenses:[];
+        db.income=Array.isArray(db.income)?db.income:[];
+        db.transfers=Array.isArray(db.transfers)?db.transfers:[];
+        db.debts=Array.isArray(db.debts)?db.debts:[];
+        db.vehicles=Array.isArray(db.vehicles)?db.vehicles:[];
+        db.vehicleReminders=Array.isArray(db.vehicleReminders)?db.vehicleReminders:[];
+        db.vehicleLogs=Array.isArray(db.vehicleLogs)?db.vehicleLogs:[];
+        db.bills=Array.isArray(db.bills)?db.bills:[];
+        db.investments=Array.isArray(db.investments)?db.investments:[];
+        db.investmentTransactions=Array.isArray(db.investmentTransactions)?db.investmentTransactions:[];
+        if(!db.accounts.length)db.accounts=[
+          {id:uid(),name:"Nakit",type:"Nakit",balance:0,currency:"TRY"},
+          {id:uid(),name:"Banka Kartı",type:"Banka",balance:0,currency:"TRY"},
+          {id:uid(),name:"Kredi Kartı",type:"Kredi Kartı",balance:0,currency:"TRY"}
+        ];
+        return;
+      }
+    }
+  }catch(e){console.warn("Current database could not be loaded",e)}
+
   const sources=[];
   for(const k of LEGACY_KEYS){
     try{
