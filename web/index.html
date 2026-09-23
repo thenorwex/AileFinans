@@ -78,6 +78,18 @@
   </div>
 </div>
 
+<div class="modal" id="accountEditModal" hidden>
+  <div class="modalbox"><h3>Hesabı Düzenle</h3>
+    <form id="accountEditForm">
+      <input id="editAccountName" required placeholder="Hesap adı">
+      <select id="editAccountType"><option>Banka</option><option>Nakit</option><option>Kredi Kartı</option><option>Diğer</option></select>
+      <input id="editAccountBalance" type="number" step="0.01" placeholder="Bakiye">
+      <select id="editAccountCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select>
+      <div class="row"><button type="button" data-close="accountEditModal">İptal</button><button class="primary" type="submit">Kaydet</button></div>
+    </form>
+  </div>
+</div>
+
 <div class="modal" id="listModal" hidden>
   <div class="modalbox"><h3 id="listTitle"></h3><div id="listBody"></div>
     <div class="row"><button data-close="listModal">Kapat</button><button class="primary" id="listAdd">+ Ekle</button></div>

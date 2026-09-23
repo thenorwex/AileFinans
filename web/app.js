@@ -149,14 +149,68 @@ $("openMembers").onclick=()=>{
   $("listAdd").onclick=()=>{closeModal("listModal");openModal("memberModal")};
   openModal("listModal");
 };
-$("openAccounts").onclick=()=>{
+let editAccountId=null;
+
+function showAccounts(){
   $("listTitle").textContent="Hesaplar / Kartlar";
   $("listBody").innerHTML=db.accounts.length
-    ? db.accounts.map(a=>`<div class="item"><span>${escapeHtml(a.name)}<br><span class="muted">${escapeHtml(a.type)}</span></span><b>${money(a.balance,a.currency)}</b></div>`).join("")
+    ? db.accounts.map(a=>`<div class="item account-row">
+        <span><b>${escapeHtml(a.name)}</b><br><span class="muted">${escapeHtml(a.type)} · ${money(a.balance,a.currency)}</span></span>
+        <span class="row-actions">
+          <button data-edit-account="${a.id}">Düzenle</button>
+          <button data-delete-account="${a.id}">Sil</button>
+        </span>
+      </div>`).join("")
     : `<div class="empty">Hesap yok.</div>`;
   $("listAdd").onclick=()=>{closeModal("listModal");openModal("accountModal")};
   openModal("listModal");
-};
+}
+
+$("openAccounts").onclick=showAccounts;
+
+document.addEventListener("click",e=>{
+  const edit=e.target.closest("[data-edit-account]");
+  if(edit){
+    const a=db.accounts.find(x=>x.id===edit.dataset.editAccount);
+    if(!a)return;
+    editAccountId=a.id;
+    $("editAccountName").value=a.name||"";
+    $("editAccountType").value=a.type||"Diğer";
+    $("editAccountBalance").value=Number(a.balance)||0;
+    $("editAccountCurrency").value=a.currency||"TRY";
+    closeModal("listModal");
+    openModal("accountEditModal");
+    return;
+  }
+  const del=e.target.closest("[data-delete-account]");
+  if(del){
+    const a=db.accounts.find(x=>x.id===del.dataset.deleteAccount);
+    if(!a)return;
+    if(!confirm(`"${a.name}" hesabı silinsin mi?`))return;
+    db.accounts=db.accounts.filter(x=>x.id!==a.id);
+    save();
+    render();
+    showAccounts();
+  }
+});
+
+$("accountEditForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const a=db.accounts.find(x=>x.id===editAccountId);
+  if(!a)return;
+  const name=$("editAccountName").value.trim();
+  if(!name)return;
+  a.name=name;
+  a.type=$("editAccountType").value;
+  a.balance=Number($("editAccountBalance").value)||0;
+  a.currency=$("editAccountCurrency").value;
+  save();
+  closeModal("accountEditModal");
+  editAccountId=null;
+  render();
+  showAccounts();
+});
+
 $("openVehicles").onclick=()=>{page("more");alert("Araç modülü bir sonraki aşamada bağlanacak.")};
 $("openBills").onclick=()=>{page("more");alert("Fatura modülü bir sonraki aşamada bağlanacak.")};
 $("addExpense").onclick=()=>alert("Harcama modülü bir sonraki aşamada bağlanacak.");
