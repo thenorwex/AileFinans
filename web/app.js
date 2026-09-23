@@ -1,3 +1,41 @@
+
+function ensureFinanceData(){
+  if(!db.cashAccounts) db.cashAccounts=[];
+  if(!db.bankAccounts) db.bankAccounts=[];
+  if(!db.transactions) db.transactions=[];
+  if(!db.fuelLogs) db.fuelLogs=[];
+  if(!db.bills) db.bills=[];
+}
+function allMoneyAccounts(){
+  ensureFinanceData();
+  return [...db.cashAccounts.map(x=>({...x,type:"cash"})),...db.bankAccounts.map(x=>({...x,type:"bank"}))];
+}
+function accountBalance(id){
+  const a=allMoneyAccounts().find(x=>String(x.id)===String(id));
+  if(!a)return 0;
+  let b=Number(a.balance)||0;
+  for(const t of db.transactions) if(String(t.accountId)===String(id)) b+=t.type==="income"?Number(t.amount)||0:-(Number(t.amount)||0);
+  return b;
+}
+function totalCashAndBank(){return allMoneyAccounts().reduce((s,a)=>s+accountBalance(a.id),0);}
+function recordExpenseTransaction(o){
+  ensureFinanceData(); const n=Number(o.amount)||0; if(n<=0)return;
+  db.transactions.push({id:crypto.randomUUID(),type:"expense",amount:n,accountId:o.accountId||null,
+    description:o.description||"Harcama",category:o.category||"Diğer",date:o.date||new Date().toISOString().slice(0,10),
+    sourceId:o.sourceId||null,createdAt:new Date().toISOString()});
+  save();
+}
+function vehicleFuelStats(vehicleId,monthKey=null){
+  ensureFinanceData();
+  const logs=db.fuelLogs.filter(x=>String(x.vehicleId)===String(vehicleId));
+  const scoped=monthKey?logs.filter(x=>(x.date||"").slice(0,7)===monthKey):logs;
+  const liters=scoped.reduce((s,x)=>s+(Number(x.liters)||0),0);
+  const cost=scoped.reduce((s,x)=>s+(Number(x.total)||Number(x.amount)||0),0);
+  const sorted=[...scoped].filter(x=>Number.isFinite(Number(x.km))).sort((a,b)=>Number(a.km)-Number(b.km));
+  const km=sorted.length>1?Math.max(0,Number(sorted.at(-1).km)-Number(sorted[0].km)):0;
+  return {liters,cost,km,litersPer100km:km?liters/km*100:0,costPerKm:km?cost/km:0,avgLiterPrice:liters?cost/liters:0};
+}
+
 (() => {
 "use strict";
 
@@ -127,6 +165,9 @@ function renderBillSummary(){
 }
 
 function render(){
+ ensureFinanceData();
+ try{renderFinanceTotals()}catch(e){}
+
   renderTodayHistory();
   renderBills();renderBillSummary();
   if($("memberCount"))$("memberCount").textContent=db.members.length;
@@ -657,3 +698,20 @@ render();
 
 })();
 
+
+function renderFinanceTotals(){
+ const total=totalCashAndBank();
+ ["cashBankTotal","totalMoney","homeTotalMoney"].forEach(id=>{const e=$(id);if(e)e.textContent=money(total,"TRY")});
+}
+
+function renderVehicleFuelSummary(vehicleId){
+ const el=$("vehicleFuelSummary");if(!el)return;
+ const m=vehicleFuelStats(vehicleId,new Date().toISOString().slice(0,7)),a=vehicleFuelStats(vehicleId);
+ el.innerHTML=`<h3>Bu Ay Yakıt Özeti</h3><div class="stats-grid">
+ <div><small>Litre</small><b>${m.liters.toFixed(2)} L</b></div>
+ <div><small>Tutar</small><b>${money(m.cost,"TRY")}</b></div>
+ <div><small>Mesafe</small><b>${m.km.toLocaleString("tr-TR")} km</b></div>
+ <div><small>Tüketim</small><b>${m.litersPer100km.toFixed(2)} L/100 km</b></div>
+ <div><small>Km maliyeti</small><b>${money(m.costPerKm,"TRY")}</b></div></div>
+ <small>Toplam: ${a.liters.toFixed(2)} L · ${money(a.cost,"TRY")} · ${a.litersPer100km.toFixed(2)} L/100 km</small>`;
+}
