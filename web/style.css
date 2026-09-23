@@ -11,3 +11,10 @@ textarea{width:100%;padding:12px;margin:7px 0;border:1px solid #d1d5db;border-ra
 .vehicle-km{font-weight:600}.item .row-actions{flex:none}
 
 .row-actions{display:flex;gap:4px;flex-wrap:wrap;align-items:center}.modalbox{max-height:88vh;overflow:auto}h4{margin:14px 0 6px}
+
+.bottom-nav{overflow-x:auto;justify-content:flex-start}
+.bottom-nav button{flex:0 0 auto;min-width:82px}
+.page-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.investment-card{align-items:center}
+.investment-value{text-align:right}
+.gain{color:#16803c}.loss{color:#b42318}

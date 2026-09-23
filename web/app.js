@@ -66,6 +66,75 @@ function photoThumb(x){
   return x.photo ? `<img class="expense-photo" src="${x.photo}" alt="Harcama fotoğrafı">` : "";
 }
 
+
+const investmentTypeLabel={gold:"Altın",crypto:"Kripto",currency:"Döviz",stock:"Hisse",fund:"Fon",manual:"Diğer"};
+function investmentCard(x){
+  const live=Number(x.livePrice), qty=Number(x.quantity)||0, value=Number.isFinite(live)&&live>0?live*qty:null;
+  const cost=(Number(x.buyPrice)||0)*qty;
+  const diff=value==null?null:value-cost;
+  const change=diff==null?"" : `<span class="${diff>=0?"gain":"loss"}">${diff>=0?"+":""}${money(diff,x.currency||"TRY")}</span>`;
+  const status=x.liveUpdatedAt?`<span class="muted">Güncelleme: ${new Date(x.liveUpdatedAt).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})}</span>`:"<span class=\"muted\">Canlı fiyat bekleniyor</span>";
+  return `<div class="item investment-card"><span><b>${escapeHtml(x.name)}</b><br><span class="muted">${investmentTypeLabel[x.type]||"Diğer"} · ${qty} ${x.type==="gold"?"g":""}</span><br>${status}</span><span class="investment-value"><b>${value==null?"—":money(value,x.currency||"TRY")}</b><br>${change}</span></div>`;
+}
+async function fetchJson(url){
+  const r=await fetch(url,{cache:"no-store"});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  return r.json();
+}
+async function updateInvestments(){
+  const list=db.investments;
+  if(!list.length)return;
+  const now=Date.now();
+  const byType={crypto:list.filter(x=>x.type==="crypto"&&x.symbol),gold:list.filter(x=>x.type==="gold"),currency:list.filter(x=>x.type==="currency"&&x.symbol),stock:list.filter(x=>(x.type==="stock"||x.type==="fund")&&x.symbol)};
+  const prices={};
+  try{
+    const ids=[...new Set(byType.crypto.map(x=>x.symbol.trim().toLowerCase()))];
+    if(ids.length){
+      const data=await fetchJson("https://api.coingecko.com/api/v3/simple/price?ids="+encodeURIComponent(ids.join(","))+"&vs_currencies=try");
+      for(const id of ids)if(data[id]?.try!=null)prices["crypto:"+id]=Number(data[id].try);
+    }
+  }catch(e){}
+  try{
+    if(byType.gold.length){
+      const gold=await fetchJson("https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT");
+      const ounce=Number(gold.symbols?.[0]?.price);
+      const fx=await fetchJson("https://api.frankfurter.dev/v2/rate/usd/try");
+      const gram=ounce*Number(fx.rate)/31.1034768;
+      if(Number.isFinite(gram))byType.gold.forEach(x=>prices["gold"]=gram);
+    }
+  }catch(e){}
+  try{
+    const codes=[...new Set(byType.currency.map(x=>x.symbol.toUpperCase()).filter(c=>["USD","EUR","GBP","CHF","JPY"].includes(c)))];
+    if(codes.length){
+      const rows=await fetchJson("https://api.frankfurter.dev/v2/rates?base=TRY&quotes="+codes.join(","));
+      const map={};(rows||[]).forEach(r=>map[r.quote]=1/Number(r.rate));
+      byType.currency.forEach(x=>{if(map[x.symbol.toUpperCase()])prices["currency:"+x.symbol.toUpperCase()]=map[x.symbol.toUpperCase()]});
+    }
+  }catch(e){}
+  // Yahoo quote is used as an optional live source for stocks/funds; if blocked, old price remains.
+  await Promise.all(byType.stock.map(async x=>{
+    try{
+      const d=await fetchJson("https://query1.finance.yahoo.com/v8/finance/chart/"+encodeURIComponent(x.symbol)+"?range=1d&interval=1m");
+      const q=d.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if(q!=null)prices["stock:"+x.symbol.toUpperCase()]=Number(q);
+    }catch(e){}
+  }));
+  list.forEach(x=>{
+    let p=null;
+    if(x.type==="gold")p=prices.gold;
+    else if(x.type==="crypto")p=prices["crypto:"+x.symbol.trim().toLowerCase()];
+    else if(x.type==="currency")p=prices["currency:"+x.symbol.toUpperCase()];
+    else if(x.type==="stock"||x.type==="fund")p=prices["stock:"+x.symbol.toUpperCase()];
+    if(Number.isFinite(p)&&p>0){x.livePrice=p;x.liveUpdatedAt=now;}
+  });
+  save();render();
+}
+let investmentRefreshTimer=null;
+function startInvestmentRefresh(){
+  clearInterval(investmentRefreshTimer);
+  updateInvestments();
+  investmentRefreshTimer=setInterval(updateInvestments,60000);
+}
 function render(){
   $("memberCount").textContent=db.members.length;
   $("totalBalance").textContent=money(db.accounts.reduce((s,a)=>s+(Number(a.balance)||0),0),"TRY");
@@ -84,8 +153,11 @@ function render(){
     : `<div class="empty">Henüz harcama yok.</div>`;
 
   $("investmentList").innerHTML=db.investments.length
-    ? db.investments.slice().reverse().map(x=>`<div class="item"><span>${escapeHtml(x.name)}</span><b>${money(x.amount,x.currency||"TRY")}</b></div>`).join("")
+    ? db.investments.slice().reverse().map(x=>investmentCard(x)).join("")
     : `<div class="empty">Henüz yatırım yok.</div>`;
+  if($("vehiclePageList"))$("vehiclePageList").innerHTML=db.vehicles.length
+    ? db.vehicles.map(v=>`<div class="item"><span><b>${escapeHtml(v.name)}</b><br><span class="muted">${escapeHtml(v.plate||"Plaka yok")} · ${vehicleKm(v).toLocaleString("tr-TR")} km</span></span><button data-open-vehicle="${v.id}">Aç</button></div>`).join("")
+    : `<div class="empty">Henüz araç eklenmedi.</div>`;
 
   $("reportText").innerHTML=`<b>${db.members.length}</b> üye, <b>${db.accounts.length}</b> hesap/kart, <b>${db.expenses.length}</b> harcama, <b>${db.investments.length}</b> yatırım ve <b>${db.vehicles.length}</b> araç kaydı var.`;
 }
@@ -246,6 +318,7 @@ function showVehicles(){
   openModal("vehicleListModal");
 }
 $("openVehicles").onclick=showVehicles;
+if($("vehiclePageAdd"))$("vehiclePageAdd").onclick=()=>{ $("vehicleForm").reset(); openModal("vehicleModal"); };
 $("vehicleAddBtn").onclick=()=>{closeModal("vehicleListModal");$("vehicleForm").reset();openModal("vehicleModal")};
 
 function openVehicle(v){
@@ -412,7 +485,15 @@ $("expenseForm").addEventListener("submit",async e=>{
   render();
 });
 
-$("addInvestment").onclick=()=>alert("Yatırım modülü bir sonraki aşamada bağlanacak.");
+$("addInvestment").onclick=()=>{ $("investmentForm").reset(); $("investmentBuyDate").value=new Date().toISOString().slice(0,10); openModal("investmentModal"); };
+$("investmentForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const qty=Number($("investmentQuantity").value), buy=Number($("investmentBuyPrice").value)||0;
+  if(!Number.isFinite(qty)||qty<=0)return;
+  db.investments.push({id:uid(),type:$("investmentType").value,name:$("investmentName").value.trim(),symbol:$("investmentSymbol").value.trim(),quantity:qty,buyPrice:buy,currency:$("investmentCurrency").value,buyDate:$("investmentBuyDate").value,note:$("investmentNote").value.trim(),livePrice:0,liveUpdatedAt:0});
+  save();closeModal("investmentModal");render();updateInvestments();
+});
+startInvestmentRefresh();
 
 load();
 render();

@@ -35,6 +35,11 @@
     <div id="investmentList"></div>
   </section>
 
+  <section class="tab" data-page="vehicles">
+    <div class="page-head"><h2>Araçlar</h2><button class="primary" id="vehiclePageAdd">+ Araç</button></div>
+    <div id="vehiclePageList"></div>
+  </section>
+
   <section class="tab" data-page="reports">
     <h2>Raporlar</h2>
     <div class="panel"><div id="reportText"></div></div>
@@ -53,9 +58,29 @@
   <button data-page="home" class="active">Ana Sayfa</button>
   <button data-page="expenses">Harcamalar</button>
   <button data-page="investments">Yatırımlar</button>
+  <button data-page="vehicles">Araçlar</button>
   <button data-page="reports">Raporlar</button>
   <button data-page="more">Daha Fazla</button>
 </nav>
+
+<div class="modal" id="investmentModal" hidden>
+  <div class="modalbox"><h3>Yatırım Ekle</h3>
+    <form id="investmentForm">
+      <select id="investmentType">
+        <option value="gold">Altın</option><option value="crypto">Kripto</option><option value="currency">Döviz</option>
+        <option value="stock">Hisse Senedi</option><option value="fund">Fon</option><option value="manual">Diğer</option>
+      </select>
+      <input id="investmentName" required placeholder="Yatırım adı (örn. Gram Altın / Bitcoin)">
+      <input id="investmentSymbol" placeholder="Kod / CoinGecko ID / Hisse kodu">
+      <input id="investmentQuantity" type="number" min="0" step="0.00000001" required placeholder="Miktar">
+      <input id="investmentBuyPrice" type="number" min="0" step="0.00000001" placeholder="Alış birim fiyatı">
+      <select id="investmentCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select>
+      <input id="investmentBuyDate" type="date" required>
+      <input id="investmentNote" placeholder="Not">
+      <div class="row"><button type="button" data-close="investmentModal">İptal</button><button class="primary">Kaydet</button></div>
+    </form>
+  </div>
+</div>
 
 <div class="modal" id="memberModal" hidden>
   <div class="modalbox"><h3>Üye Ekle</h3>
