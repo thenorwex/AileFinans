@@ -1,258 +1,77 @@
 <!doctype html>
 <html lang="tr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#111827">
-<title>Aile Finans v41</title>
-<link rel="stylesheet" href="style.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#172033"><title>Aile Finans</title><link rel="stylesheet" href="style.css">
 </head>
-<body><button id="menuToggle" class="menu-toggle" aria-label="Menüyü aç">☰</button><div id="menuOverlay" class="menu-overlay"></div>
-<header class="topbar"><div class="brand"><span class="brand-mark">₺</span><div><h1>Aile Finans</h1><small id="appSubtitle">Aile bütçesi</small></div></div><span id="status">Hazır</span></header>
-
-<aside class="side-nav" id="sideNav">
-  <div class="nav-title">MENÜ</div>
-  <button data-page="home" class="active"><span>⌂<div class="card finance-total-card"><small>Nakit + Banka Toplamı</small><b id="cashBankTotal">₺0</b></div></span> Ana Sayfa</button>
-  <button data-page="expenses"><span>↘</span> Harcamalar</button>
-  <button data-page="investments"><span>◈</span> Yatırımlar</button>
-  <button data-page="vehicles"><span>▣</span> Araçlar</button>
-  <button data-page="bills"><span>🧾</span> Faturalar</button>
-  <button data-page="reports"><span>▤</span> Raporlar</button>
-  <button data-page="more"><span>⚙</span> Daha Fazla</button>
+<body>
+<header class="topbar"><div class="brand"><div class="brand-mark">₺</div><div><strong id="appName">Aile Finans</strong><small id="appSubtitle">Aile bütçesi</small></div></div><div class="top-actions"><span id="status">Hazır</span><button id="menuToggle" class="icon-btn" aria-label="Menüyü aç">☰</button></div></header>
+<div id="menuOverlay" class="menu-overlay"></div>
+<aside id="sideNav" class="side-nav" aria-hidden="true">
+  <div class="nav-head"><div class="brand-mark small">₺</div><div><b>Aile Finans</b><small>Menü</small></div><button id="menuClose" class="icon-btn">×</button></div>
+  <nav>
+    <button data-page="home" class="active"><span>⌂</span>Ana Sayfa</button>
+    <button data-page="expenses"><span>↘</span>Harcamalar</button>
+    <button data-page="investments"><span>◈</span>Yatırımlar</button>
+    <button data-page="vehicles"><span>▣</span>Araçlar</button>
+    <button data-page="bills"><span>▤</span>Faturalar</button>
+    <button data-page="reports"><span>▥</span>Raporlar</button>
+    <button data-page="more"><span>⚙</span>Ayarlar</button>
+  </nav>
+  <div class="side-total"><small>Nakit + Banka</small><b id="sideTotal">₺0</b></div>
 </aside>
-
 <main id="app">
-  <section class="tab active" data-page="home">
-    <h2>Özet</h2>
-    <div class="hero-card"><div><small>Bu Ay</small><h2 id="homeMonthLabel">Finans özeti</h2><p>Gelir, gider ve yatırımlarını tek ekranda takip et.</p></div><div class="hero-value" id="homeNet">₺0</div></div>
-    <div class="cards">
-      <div class="card accent"><small>Toplam Bakiye</small><b id="totalBalance">₺0</b></div>
-      <div class="card"><small>Bu Ay Gelir</small><b id="monthIncome">₺0</b></div>
-      <div class="card"><small>Bu Ay Gider</small><b id="monthExpense">₺0</b></div><div class="card"><small>Üyeler</small><b id="memberCount">0</b></div>
-      <div class="card"><small>Yatırım Değeri</small><b id="investmentTotal">₺0</b></div>
-    </div>
-    <div class="panel">
-      <h3>Üyeler</h3><div id="homeMembers"></div>
-    </div>
-    <div class="panel today-history">
-      <div class="page-head"><div><h3 id="todayHistoryTitle">Bugünün Tarihi</h3><p class="muted">Bugün ve bu tarihte geçmişte yaşanan önemli olaylar.</p></div></div>
-      <h3 id="dailyHistoryTitle">Bugünün Tarihi</h3><div id="dailyHistory"></div>
-    </div>
-  </section>
-
-  <section class="tab" data-page="expenses">
-    <h2>Harcamalar</h2>
-    <button class="primary" id="addExpense" type="button">+ Harcama</button>
-    <div id="expenseList"></div>
-  </section>
-
-  <section class="tab" data-page="investments">
-    <div class="page-head"><div><h2>Yatırımlar</h2><p class="muted">Fiyatları sen manuel gir. Kâr/zarar otomatik hesaplanır.</p></div><button class="primary" id="addInvestment">+ Yatırım</button></div>
-    <div id="investmentList"></div>
-  </section>
-
-  <section class="tab" data-page="vehicles">
-    <div class="page-head"><h2>Araçlar</h2><button class="primary" id="vehiclePageAdd">+ Araç</button></div>
-    <div id="vehiclePageList"></div>
-  </section>
-
-  <section class="tab" data-page="bills">
-<div class="page-head"><div><h2>Faturalar</h2><p class="muted">Düzenli ve tek seferlik faturalarını takip et.</p></div><button class="primary" id="addBill" type="button">+ Fatura</button></div>
-<div class="stats-grid"><div class="card"><small>Bekleyen</small><b id="billTotal">₺0</b></div><div class="card"><small>Geciken</small><b id="billOverdue">₺0</b></div><div class="card"><small>Fatura adedi</small><b id="billCount">0</b></div></div>
-<div class="card"><div id="billsList" class="list"></div></div></section>
-<section class="tab" data-page="reports">
-    <div class="page-head"><div><h2>Raporlar</h2><p class="muted">Kişi seçerek o kişinin finansal hareketlerini, seçimi kaldırarak genel aile toplamını gör.</p></div><div class="report-filters"><label>Kişi<select id="reportMember"><option value="">Genel</option></select></label><label>Ay<select id="reportMonth"></select></label></div></div>
-    <div id="reportText"></div>
-  </section>
-
-  <section class="tab" data-page="more">
-    <h2>Daha Fazla</h2>
-    <div class="settings-grid">
-      <button class="setting-tile" id="openMembers"><span>👥</span><b>Üye Yönetimi</b><small>Aile üyeleri</small></button>
-      <button class="setting-tile" id="openAccounts"><span>💳</span><b>Hesap / Kart</b><small>Bakiye ve kartlar</small></button>
-      <button class="setting-tile" id="openVehicles"><span>🚗</span><b>Araçlar</b><small>Km, yakıt, bakım</small></button>
-      <button class="setting-tile" id="openIncome"><span>💰</span><b>Gelir Ekle</b><small>Maaş, kira, diğer</small></button>
-      <button class="setting-tile" id="openSettings"><span>⚙️</span><b>Ayarlar</b><small>Uygulamayı özelleştir</small></button>
-    </div>
-  </section>
+<section class="page active" data-page="home">
+  <div class="page-head"><div><small id="todayDateLabel" class="eyebrow"></small><h1>Genel Özet</h1><p class="muted">Ailenin finansal durumunu tek ekranda takip et.</p></div><button class="primary" id="quickIncome">+ Gelir</button></div>
+  <div class="hero"><div><small>Bu Ay Net</small><h2 id="homeNet">₺0</h2><p id="homeMonthLabel">-</p></div><div class="hero-icon">₺</div></div>
+  <div class="cards four"><div class="card"><small>Toplam Bakiye</small><b id="totalBalance">₺0</b></div><div class="card"><small>Bu Ay Gelir</small><b id="monthIncome">₺0</b></div><div class="card"><small>Bu Ay Gider</small><b id="monthExpense">₺0</b></div><div class="card"><small>Üyeler</small><b id="memberCount">0</b></div></div>
+  <div class="cards three"><div class="card"><small>Yatırım Değeri</small><b id="investmentTotal">₺0</b></div><div class="card"><small>Bekleyen Faturalar</small><b id="homeBillTotal">₺0</b></div><div class="card"><small>Araç Gideri (Ay)</small><b id="homeVehicleTotal">₺0</b></div></div>
+  <div class="grid2">
+    <div class="panel"><div class="panel-head"><h3>Hesaplar</h3><button id="quickAccount">+ Hesap</button></div><div id="homeAccounts"></div></div>
+    <div class="panel"><div class="panel-head"><h3>Üyeler</h3><button id="quickMember">+ Üye</button></div><div id="homeMembers"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="panel weather"><div class="panel-head"><div><h3>Hava Durumu</h3><small id="weatherLocation">-</small></div><button id="refreshWeather">↻</button></div><div id="weatherBox"><span class="muted">Yükleniyor...</span></div></div>
+    <div class="panel"><div class="panel-head"><h3>Bugünün Tarihi</h3><span id="dailyDate" class="muted"></span></div><div id="dailyHistory"></div></div>
+  </div>
+</section>
+<section class="page" data-page="expenses">
+  <div class="page-head"><div><h1>Harcamalar</h1><p class="muted">Tüm giderler ve hangi hesaptan ödendiği.</p></div><button class="primary" id="addExpense">+ Harcama</button></div><div id="expenseList"></div>
+</section>
+<section class="page" data-page="investments">
+  <div class="page-head"><div><h1>Yatırımlar</h1><p class="muted">Fiyatı manuel güncelle. Kâr/zarar otomatik hesaplanır.</p></div><button class="primary" id="addInvestment">+ Yatırım</button></div><div id="investmentSummary" class="cards three"></div><div id="investmentList"></div>
+</section>
+<section class="page" data-page="vehicles">
+  <div class="page-head"><div><h1>Araçlar</h1><p class="muted">Yakıt, kilometre, bakım, belge ve satın alma giderleri.</p></div><button class="primary" id="addVehicle">+ Araç</button></div><div id="vehicleList"></div>
+</section>
+<section class="page" data-page="bills">
+  <div class="page-head"><div><h1>Faturalar</h1><p class="muted">Ödeme yapınca otomatik olarak gider ve hesap hareketi oluşur.</p></div><button class="primary" id="addBill">+ Fatura</button></div><div id="billSummary" class="cards three"></div><div id="billsList"></div>
+</section>
+<section class="page" data-page="reports">
+  <div class="page-head"><div><h1>Raporlar</h1><p class="muted">Kişi seçerek kişisel, seçimi kaldırarak genel aile özeti.</p></div><div class="filters"><label>Kişi<select id="reportMember"></select></label><label>Ay<select id="reportMonth"></select></label></div></div><div id="reportText"></div>
+</section>
+<section class="page" data-page="more">
+  <div class="page-head"><div><h1>Ayarlar</h1><p class="muted">Uygulamanın davranışlarını ve verilerini yönet.</p></div></div>
+  <div class="settings-grid"><button class="setting-tile" id="openMembers">👥<b>Üyeler</b><small>Ekle, sil</small></button><button class="setting-tile" id="openAccounts">💳<b>Hesaplar</b><small>Nakit ve banka</small></button><button class="setting-tile" id="openSettings">⚙<b>Uygulama Ayarları</b><small>Genel seçenekler</small></button><button class="setting-tile" id="exportData">⇩<b>Yedek Al</b><small>JSON olarak dışa aktar</small></button><button class="setting-tile" id="importDataBtn">⇧<b>Yedek Yükle</b><small>JSON içe aktar</small></button></div><input id="importData" type="file" accept="application/json" hidden>
+</section>
 </main>
 
-
-<div class="modal" id="investmentModal" hidden>
-  <div class="modalbox"><h3>Yatırım Ekle</h3>
-    <form id="investmentForm">
-      <select id="investmentType">
-        <option value="gold">Altın</option><option value="crypto">Kripto</option><option value="currency">Döviz</option>
-        <option value="stock">Hisse Senedi</option><option value="fund">Fon</option><option value="manual">Diğer</option>
-      </select>
-      <input id="investmentName" required placeholder="Yatırım adı (örn. Gram Altın / Bitcoin)">
-      <input id="investmentSymbol" placeholder="Kod (BTC: bitcoin, döviz: USD, hisse: AAPL)"><small id="investmentHelp" class="field-help">Örn: AAPL, BTC, USD/TRY</small>
-      <small class="field-help">Altın için kod boş bırakılabilir. Kriptoda CoinGecko ID kullanılır.</small>
-      <input id="investmentQuantity" type="number" min="0" step="0.00000001" required placeholder="Miktar">
-      <input id="investmentBuyPrice" type="number" min="0" step="0.00000001" placeholder="Alış birim fiyatı">
-      <select id="investmentCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select>
-      <input id="investmentBuyDate" type="date" required>
-      <input id="investmentNote" placeholder="Not">
-      <div class="row"><button type="button" data-close="investmentModal">İptal</button><button class="primary">Kaydet</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="modal" id="incomeModal" hidden>
-  <div class="modalbox"><h3>Gelir Ekle</h3>
-    <form id="incomeForm">
-      <input id="incomeTitle" required placeholder="Gelir açıklaması (örn. Maaş)">
-      <input id="incomeAmount" required type="number" min="0" step="0.01" placeholder="Tutar">
-      <select id="incomeCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select>
-      <select id="incomeMember"><option value="">Üye seç</option></select>
-      <select id="incomeAccount"><option value="">Hesaba ekleme</option><option value="cash">Nakit</option><option value="bank">Banka</option></select>
-      <input id="incomeDate" type="date" required>
-      <input id="incomeNote" placeholder="Not">
-      <div class="row"><button type="button" data-close="incomeModal">İptal</button><button class="primary">Kaydet</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="modal" id="settingsModal" hidden>
-  <div class="modalbox settings-box"><h3>Ayarlar</h3>
-    <div class="settings-section"><h4>Genel</h4>
-      <label>Uygulama adı<input id="settingAppName" maxlength="40"></label>
-      <label>Ana para birimi<select id="settingCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select></label>
-      <label>Görünüm<select id="settingTheme"><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label>
-    </div>
-    <div class="settings-section"><h4>Harcama kategorileri</h4>
-      <textarea id="settingCategories" rows="4" placeholder="Market, Yakıt, Fatura..."></textarea>
-      <button id="saveCategorySettings" class="primary">Kategorileri Kaydet</button>
-    </div>
-    <div class="settings-section"><h4>Veri yönetimi</h4>
-      <div class="row"><button id="exportData">Yedeği Dışa Aktar</button><button id="importDataBtn">Yedek Yükle</button></div>
-      <input id="importData" type="file" accept="application/json" hidden>
-      <button id="clearData" class="danger">Tüm Verileri Sil</button>
-    </div>
-    <div class="row"><button data-close="settingsModal">Kapat</button><button id="saveSettings" class="primary">Ayarları Kaydet</button></div>
-  </div>
-</div>
-
-<div class="modal" id="memberModal" hidden>
-  <div class="modalbox"><h3>Üye Ekle</h3>
-    <form id="memberForm">
-      <input id="memberName" required placeholder="Üye adı">
-      <div class="row"><button type="button" data-close="memberModal">İptal</button><button class="primary" type="submit">Kaydet</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="modal" id="accountModal" hidden>
-  <div class="modalbox"><h3>Hesap / Kart Ekle</h3>
-    <form id="accountForm">
-      <input id="accountName" required placeholder="Hesap adı">
-      <select id="accountType"><option>Banka</option><option>Nakit</option><option>Kredi Kartı</option><option>Diğer</option><option value="cash">Nakit</option><option value="bank">Banka</option></select>
-      <input id="accountBalance" type="number" step="0.01" placeholder="Bakiye">
-      <select id="accountCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option><option value="cash">Nakit</option><option value="bank">Banka</option></select>
-      <div class="row"><button type="button" data-close="accountModal">İptal</button><button class="primary" type="submit">Kaydet</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="modal" id="expenseEditModal" hidden>
-  <div class="modalbox"><h3>Harcamayı Düzenle</h3>
-    <form id="expenseEditForm">
-      <input id="editExpenseTitle" required placeholder="Harcama açıklaması">
-      <label>Fotoğraf (isteğe bağlı)</label><input id="editExpensePhoto" type="file" accept="image/*" capture="environment">
-      <input id="editExpenseAmount" required type="number" step="0.01" min="0" placeholder="Tutar">
-      <select id="editExpenseCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select>
-      <select id="editExpenseMember"></select>
-      <select id="editExpenseCategory"></select>
-      <select id="editExpenseAccount"><option value="cash">Nakit</option><option value="bank">Banka</option></select>
-      <input id="editExpenseDate" type="date">
-      <textarea id="editExpenseNote" rows="3" placeholder="Not"></textarea>
-      <div class="row"><button type="button" data-close="expenseEditModal">İptal</button><button class="primary" type="submit">Kaydet</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="modal" id="accountEditModal" hidden>
-  <div class="modalbox"><h3>Hesabı Düzenle</h3>
-    <form id="accountEditForm">
-      <input id="editAccountName" required placeholder="Hesap adı">
-      <select id="editAccountType"><option>Banka</option><option>Nakit</option><option>Kredi Kartı</option><option>Diğer</option><option value="cash">Nakit</option><option value="bank">Banka</option></select>
-      <input id="editAccountBalance" type="number" step="0.01" placeholder="Bakiye">
-      <select id="editAccountCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option><option value="cash">Nakit</option><option value="bank">Banka</option></select>
-      <div class="row"><button type="button" data-close="accountEditModal">İptal</button><button class="primary" type="submit">Kaydet</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="modal" id="vehicleModal" hidden>
-  <div class="modalbox"><h3>Araç Ekle</h3>
-    <form id="vehicleForm">
-      <input id="vehicleName" required placeholder="Araç adı (örn. Skoda Scala)">
-      <input id="vehiclePlate" placeholder="Plaka">
-      <input id="vehicleKm" type="number" min="0" step="1" placeholder="Güncel kilometre">
-      <input id="vehicleFuel" placeholder="Yakıt türü (örn. Benzin)">
-      <div class="row"><button type="button" data-close="vehicleModal">İptal</button><button class="primary" type="submit">Kaydet</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="modal" id="vehicleListModal" hidden>
-  <div class="modalbox"><h3>Araçlar</h3><div id="vehicleList"></div>
-    <div class="row"><button data-close="vehicleListModal">Kapat</button><button class="primary" id="vehicleAddBtn">+ Araç</button></div>
-  </div>
-</div>
-
-
-<div id="vehicleFuelSummary" class="card"></div><div class="modal" id="vehicleDetailModal" hidden><div class="modalbox">
-<h3 id="vehicleDetailTitle">Araç</h3><div id="vehicleDetailSummary" class="card"></div><div id="vehicleHistory"></div>
-<div class="row"><button data-close="vehicleDetailModal">Kapat</button><button class="primary" id="vehicleAddKmBtn">+ Km</button><button class="primary" id="vehicleAddFuelBtn">+ Yakıt</button><button class="primary" id="vehicleAddServiceBtn">+ Bakım</button><button class="primary" id="vehicleAddInsuranceBtn">+ Belge</button></div>
-</div></div>
-<div class="modal" id="vehicleKmModal" hidden><div class="modalbox"><h3>Kilometre Kaydı</h3><form id="vehicleKmForm">
-<input id="vehicleKmValue" type="number" min="0" required placeholder="Kilometre"><input id="vehicleKmDate" type="date" required><textarea id="vehicleKmNote" rows="2" placeholder="Not"></textarea>
-<div class="row"><button type="button" data-close="vehicleKmModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
-<div class="modal" id="vehicleFuelModal" hidden><div class="modalbox"><h3>Yakıt Kaydı</h3><form id="vehicleFuelForm">
-<input id="vehicleFuelLiters" type="number" min="0.01" step="0.01" required placeholder="Litre"><input id="vehicleFuelPrice" type="number" min="0" step="0.001" readonly placeholder="Otomatik litre fiyatı"><input id="vehicleFuelTotal" type="number" min="0" step="0.01" required placeholder="Toplam tutar"><small id="fuelAutoHint" class="field-help">Toplam tutar ve litreyi girince litre fiyatı otomatik hesaplanır.</small><input id="vehicleFuelKm" type="number" min="0" required placeholder="Kilometre"><select id="vehicleFuelAccount"><option value="cash">Nakit</option><option value="bank">Banka</option></select><input id="vehicleFuelDate" type="date" required><input id="vehicleFuelStation" placeholder="İstasyon"><label>Fotoğraf</label><input id="vehicleFuelPhoto" type="file" accept="image/*" capture="environment">
-<div class="row"><button type="button" data-close="vehicleFuelModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
-<div class="modal" id="vehicleServiceModal" hidden><div class="modalbox"><h3>Bakım / Servis</h3><form id="vehicleServiceForm">
-<input id="vehicleServiceTitle" required placeholder="İşlem"><input id="vehicleServiceCost" type="number" min="0" step="0.01" placeholder="Tutar"><input id="vehicleServiceKm" type="number" min="0" placeholder="Kilometre"><input id="vehicleServiceNextKm" type="number" min="0" placeholder="Sonraki bakım km"><input id="vehicleServiceDate" type="date" required><select id="vehicleServiceAccount"><option value="cash">Nakit</option><option value="bank">Banka</option></select><textarea id="vehicleServiceNote" rows="2" placeholder="Not"></textarea><label>Fotoğraf</label><input id="vehicleServicePhoto" type="file" accept="image/*" capture="environment">
-<div class="row"><button type="button" data-close="vehicleServiceModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
-<div class="modal" id="vehicleInsuranceModal" hidden><div class="modalbox"><h3>Sigorta / Kasko / Muayene</h3><form id="vehicleInsuranceForm">
-<select id="vehicleDocType"><option>Sigorta</option><option>Kasko</option><option>Muayene</option></select><input id="vehicleDocDate" type="date" required><input id="vehicleDocExpiry" type="date" required><input id="vehicleDocCost" type="number" min="0" step="0.01" placeholder="Tutar"><select id="vehicleDocAccount"><option value="cash">Nakit</option><option value="bank">Banka</option></select><textarea id="vehicleDocNote" rows="2" placeholder="Not"></textarea>
-<div class="row"><button type="button" data-close="vehicleInsuranceModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
-
-<div class="modal" id="expenseModal" hidden>
-  <div class="modalbox"><h3>Harcama Ekle</h3>
-    <form id="expenseForm">
-      <input id="expenseTitle" required placeholder="Harcama açıklaması">
-      <label>Fotoğraf (isteğe bağlı)</label><input id="expensePhoto" type="file" accept="image/*" capture="environment">
-      <input id="expenseAmount" required type="number" step="0.01" min="0" placeholder="Tutar">
-      <select id="expenseCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select>
-      <label>Üye</label><select id="expenseMember"></select>
-      <label>Kategori</label><select id="expenseCategory"></select>
-      <label>Ödeme hesabı</label><select id="expenseAccount"><option value="cash">Nakit</option><option value="bank">Banka</option></select>
-      <label>Tarih</label><input id="expenseDate" type="date">
-      <textarea id="expenseNote" rows="3" placeholder="Not (isteğe bağlı)"></textarea>
-      <div class="row"><button type="button" data-close="expenseModal">İptal</button><button class="primary" type="submit">Kaydet</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="modal" id="listModal" hidden>
-  <div class="modalbox"><h3 id="listTitle"></h3><div id="listBody"></div>
-    <div class="row"><button data-close="listModal">Kapat</button><button class="primary" id="listAdd">+ Ekle</button></div>
-  </div>
-</div>
-
-
-<div id="toast" class="toast" aria-live="polite"></div>
-<div class="modal" id="billModal" hidden><div class="modalbox">
-<div class="modal-head"><h3>Fatura</h3><button data-close="billModal">×</button></div>
-<form id="billForm"><input type="hidden" id="billId">
-<label>Fatura adı<input id="billName" required placeholder="Elektrik"></label>
-<label>Kategori<select id="billCategory"><option>Elektrik</option><option>Su</option><option>Doğalgaz</option><option>İnternet</option><option>Telefon</option><option>Kira</option><option>Sigorta</option><option>Vergi</option><option>Diğer</option></select></label>
-<div class="form-grid"><label>Tutar<input id="billAmount" type="number" step="0.01" min="0" required></label><label>Para birimi<select id="billCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label></div>
-<label>Son ödeme tarihi<input id="billDueDate" type="date"></label>
-<label class="check"><input id="billRecurring" type="checkbox"> Düzenli fatura</label>
-<label>Tekrar sıklığı<select id="billPeriod"><option value="monthly">Aylık</option><option value="weekly">Haftalık</option><option value="yearly">Yıllık</option></select></label>
-<button class="primary" type="submit">Kaydet</button></form></div></div><div class="modal" id="manualPriceModal" hidden><div class="modalbox"><h3>Yatırım Fiyatı Gir</h3><form id="manualPriceForm"><input type="hidden" id="manualPriceId"><label>Fiyat<input id="manualPriceValue" type="number" step="0.0001" min="0" required></label><label>Tarih<input id="manualPriceDate" type="date" required></label><label>Not<input id="manualPriceNote" placeholder="Örn. banka alış fiyatı"></label><div class="row"><button type="button" data-close="manualPriceModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div><script src="app.js"></script>
-</body>
-</html>
+<!-- Modals -->
+<div class="modal" id="memberModal" hidden><div class="modalbox"><div class="modal-head"><h3>Üye Ekle</h3><button data-close="memberModal">×</button></div><form id="memberForm"><label>Ad soyad<input id="memberName" required></label><div class="actions"><button type="button" data-close="memberModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="accountModal" hidden><div class="modalbox"><div class="modal-head"><h3>Hesap Ekle</h3><button data-close="accountModal">×</button></div><form id="accountForm"><label>Hesap adı<input id="accountName" required></label><label>Tür<select id="accountType"><option value="cash">Nakit</option><option value="bank">Banka</option><option value="card">Kredi Kartı</option></select></label><label>Başlangıç bakiyesi<input id="accountBalance" type="number" step="0.01" value="0"></label><label>Para birimi<select id="accountCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label><div class="actions"><button type="button" data-close="accountModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="expenseModal" hidden><div class="modalbox"><div class="modal-head"><h3>Harcama Ekle</h3><button data-close="expenseModal">×</button></div><form id="expenseForm"><label>Açıklama<input id="expenseTitle" required></label><div class="form-grid"><label>Tutar<input id="expenseAmount" type="number" min="0.01" step="0.01" required></label><label>Para birimi<select id="expenseCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label></div><label>Üye<select id="expenseMember"></select></label><label>Kategori<select id="expenseCategory"></select></label><label>Ödeme hesabı<select id="expenseAccount"></select></label><label>Tarih<input id="expenseDate" type="date" required></label><label>Not<textarea id="expenseNote"></textarea></label><div class="actions"><button type="button" data-close="expenseModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="incomeModal" hidden><div class="modalbox"><div class="modal-head"><h3>Gelir Ekle</h3><button data-close="incomeModal">×</button></div><form id="incomeForm"><label>Açıklama<input id="incomeTitle" required></label><div class="form-grid"><label>Tutar<input id="incomeAmount" type="number" min="0.01" step="0.01" required></label><label>Para birimi<select id="incomeCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label></div><label>Üye<select id="incomeMember"></select></label><label>Hesaba ekle<select id="incomeAccount"></select></label><label>Tarih<input id="incomeDate" type="date" required></label><label>Not<textarea id="incomeNote"></textarea></label><div class="actions"><button type="button" data-close="incomeModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="investmentModal" hidden><div class="modalbox"><div class="modal-head"><h3>Yatırım Ekle</h3><button data-close="investmentModal">×</button></div><form id="investmentForm"><label>Tür<select id="investmentType"><option value="gold">Altın</option><option value="currency">Döviz</option><option value="stock">Hisse</option><option value="fund">Fon</option><option value="crypto">Kripto</option><option value="manual">Diğer</option></select></label><label>Ad<input id="investmentName" required placeholder="Gram Altın"></label><label>Kod / sembol<input id="investmentSymbol" placeholder="USD, THYAO, BTC..."></label><div class="form-grid"><label>Miktar<input id="investmentQuantity" type="number" min="0.00000001" step="0.00000001" required></label><label>Alış birim fiyatı<input id="investmentBuyPrice" type="number" min="0" step="0.00000001" required></label></div><label>Para birimi<select id="investmentCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label><label>Alış tarihi<input id="investmentBuyDate" type="date" required></label><label>Ödeme hesabı<select id="investmentAccount"></select></label><label>Not<textarea id="investmentNote"></textarea></label><div class="actions"><button type="button" data-close="investmentModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="manualPriceModal" hidden><div class="modalbox"><div class="modal-head"><h3>Fiyat Güncelle</h3><button data-close="manualPriceModal">×</button></div><form id="manualPriceForm"><input id="manualPriceId" type="hidden"><label>Güncel birim fiyat<input id="manualPriceValue" type="number" min="0" step="0.00000001" required></label><label>Tarih<input id="manualPriceDate" type="date" required></label><label>Not<input id="manualPriceNote"></label><div class="actions"><button type="button" data-close="manualPriceModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="vehicleModal" hidden><div class="modalbox"><div class="modal-head"><h3>Araç Ekle</h3><button data-close="vehicleModal">×</button></div><form id="vehicleForm"><label>Araç adı<input id="vehicleName" required placeholder="Skoda Scala"></label><div class="form-grid"><label>Plaka<input id="vehiclePlate"></label><label>Yakıt türü<input id="vehicleFuel" placeholder="Benzin"></label></div><label>Mevcut km<input id="vehicleKm" type="number" min="0" value="0"></label><div class="form-grid"><label>Satın alma bedeli<input id="vehiclePurchasePrice" type="number" min="0" step="0.01" value="0"></label><label>Ödeme hesabı<select id="vehiclePurchaseAccount"></select></label></div><label>Satın alma tarihi<input id="vehiclePurchaseDate" type="date"></label><div class="actions"><button type="button" data-close="vehicleModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="vehicleDetailModal" hidden><div class="modalbox"><div class="modal-head"><h3 id="vehicleDetailTitle">Araç</h3><button data-close="vehicleDetailModal">×</button></div><div id="vehicleDetailSummary"></div><div class="vehicle-actions"><button id="vehicleAddKm">+ Km</button><button id="vehicleAddFuel">+ Yakıt</button><button id="vehicleAddService">+ Bakım</button><button id="vehicleAddDoc">+ Belge</button></div><div id="vehicleHistory"></div></div></div>
+<div class="modal" id="vehicleKmModal" hidden><div class="modalbox"><div class="modal-head"><h3>Km Kaydı</h3><button data-close="vehicleKmModal">×</button></div><form id="vehicleKmForm"><label>Km<input id="vehicleKmValue" type="number" min="0" required></label><label>Tarih<input id="vehicleKmDate" type="date" required></label><div class="actions"><button type="button" data-close="vehicleKmModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="vehicleFuelModal" hidden><div class="modalbox"><div class="modal-head"><h3>Yakıt</h3><button data-close="vehicleFuelModal">×</button></div><form id="vehicleFuelForm"><div class="form-grid"><label>Toplam TL<input id="vehicleFuelTotal" type="number" min="0.01" step="0.01" required></label><label>Litre<input id="vehicleFuelLiters" type="number" min="0.01" step="0.01" required></label></div><label>Litre fiyatı<input id="vehicleFuelPrice" readonly></label><label>Km<input id="vehicleFuelKm" type="number" min="0" required></label><label>Ödeme hesabı<select id="vehicleFuelAccount"></select></label><label>Tarih<input id="vehicleFuelDate" type="date" required></label><label>İstasyon<input id="vehicleFuelStation"></label><div class="actions"><button type="button" data-close="vehicleFuelModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="vehicleServiceModal" hidden><div class="modalbox"><div class="modal-head"><h3>Bakım</h3><button data-close="vehicleServiceModal">×</button></div><form id="vehicleServiceForm"><label>İşlem<input id="vehicleServiceTitle" required></label><div class="form-grid"><label>Tutar<input id="vehicleServiceCost" type="number" min="0" step="0.01"></label><label>Km<input id="vehicleServiceKm" type="number" min="0"></label></div><label>Sonraki bakım km<input id="vehicleServiceNextKm" type="number" min="0"></label><label>Ödeme hesabı<select id="vehicleServiceAccount"></select></label><label>Tarih<input id="vehicleServiceDate" type="date" required></label><label>Not<textarea id="vehicleServiceNote"></textarea></label><div class="actions"><button type="button" data-close="vehicleServiceModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="vehicleDocModal" hidden><div class="modalbox"><div class="modal-head"><h3>Belge</h3><button data-close="vehicleDocModal">×</button></div><form id="vehicleDocForm"><label>Tür<select id="vehicleDocType"><option>Sigorta</option><option>Kasko</option><option>Muayene</option></select></label><div class="form-grid"><label>Tarih<input id="vehicleDocDate" type="date" required></label><label>Son geçerlilik<input id="vehicleDocExpiry" type="date" required></label></div><label>Tutar<input id="vehicleDocCost" type="number" min="0" step="0.01"></label><label>Ödeme hesabı<select id="vehicleDocAccount"></select></label><div class="actions"><button type="button" data-close="vehicleDocModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="billModal" hidden><div class="modalbox"><div class="modal-head"><h3>Fatura</h3><button data-close="billModal">×</button></div><form id="billForm"><input id="billId" type="hidden"><label>Fatura adı<input id="billName" required></label><label>Kategori<select id="billCategory"><option>Elektrik</option><option>Su</option><option>Doğalgaz</option><option>İnternet</option><option>Telefon</option><option>Kira</option><option>Sigorta</option><option>Vergi</option><option>Diğer</option></select></label><div class="form-grid"><label>Tutar<input id="billAmount" type="number" min="0.01" step="0.01" required></label><label>Son ödeme<input id="billDueDate" type="date"></label></div><label>Düzenli fatura<input id="billRecurring" type="checkbox"></label><label>Ödeme hesabı<select id="billAccount"></select></label><div class="actions"><button type="button" data-close="billModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div>
+<div class="modal" id="listModal" hidden><div class="modalbox"><div class="modal-head"><h3 id="listTitle"></h3><button data-close="listModal">×</button></div><div id="listBody"></div><div class="actions"><button data-close="listModal">Kapat</button><button class="primary" id="listAdd">+ Ekle</button></div></div></div>
+<div class="modal" id="settingsModal" hidden><div class="modalbox"><div class="modal-head"><h3>Ayarlar</h3><button data-close="settingsModal">×</button></div><form id="settingsForm"><label>Uygulama adı<input id="settingAppName"></label><label>Para birimi<select id="settingCurrency"><option>TRY</option><option>USD</option><option>EUR</option><option>GBP</option></select></label><label>Görünüm<select id="settingTheme"><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label><label>Hava durumu şehri<input id="settingCity" placeholder="Antalya"></label><label>Harcama kategorileri<textarea id="settingCategories"></textarea></label><div class="actions"><button type="button" data-close="settingsModal">Kapat</button><button class="primary">Kaydet</button></div></form><hr><button id="clearData" class="danger">Tüm verileri sil</button></div></div>
+<div id="toast" class="toast"></div>
+<script src="app.js"></script>
+</body></html>
