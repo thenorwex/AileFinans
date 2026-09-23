@@ -1,0 +1,2 @@
+
+.status-pill{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700}.status-pill.paid{background:#dff7e7}.status-pill.overdue{background:#ffe1e1}.status-pill.soon{background:#fff0c2}.status-pill.pending{background:#e7eefc}.bill-row{grid-template-columns:1fr auto auto auto;gap:12px;align-items:center}.row-actions{display:flex;gap:6px;flex-wrap:wrap}.empty{padding:24px;text-align:center;opacity:.65}

@@ -54,6 +54,7 @@ function load(){
   }
   db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:30,autoUpdate:true,priceSource:"builtin",customPriceUrl:"",customPriceMode:"auto",customPriceSelector:"",customPriceJsonPath:"",customPriceRegex:"",... (db.settings||{})};
 }
+  db.bills=Array.isArray(db.bills)?db.bills:[];
 
 function fileToDataUrl(file){
   return new Promise((resolve,reject)=>{
@@ -300,6 +301,14 @@ async function updateInvestments(){
     ? `Tüm yatırımlar güncel · ${ok}/${total}`
     : `${ok}/${total} yatırım güncellendi · diğerleri son fiyatı koruyor`;
 }
+
+async function marketHealthCheck(){
+  const checks=[];
+  try{const p=await getExchangeRate("USD/TRY","TRY");checks.push(["Döviz",p>0])}catch(e){checks.push(["Döviz",false])}
+  try{const p=await getMetalQuote("TRY");checks.push(["Altın",p>0])}catch(e){checks.push(["Altın",false])}
+  try{const d=await getCrypto(["bitcoin"],["usd"]);checks.push(["Kripto",Number(d.bitcoin?.usd)>0])}catch(e){checks.push(["Kripto",false])}
+  return checks;
+}
 function startInvestmentRefresh(){
   clearInterval(investmentTimer);
   if(db.settings.autoUpdate!==false){
@@ -307,7 +316,44 @@ function startInvestmentRefresh(){
     investmentTimer=setInterval(updateInvestments,Math.max(30,Number(db.settings.refreshSeconds)||30)*1000);
   }
 }
+
+function billStatus(b){
+  if(b.paid)return "paid";
+  const due=new Date((b.dueDate||"")+"T00:00:00"), today=new Date(); today.setHours(0,0,0,0);
+  if(Number.isNaN(due.getTime()))return "unknown";
+  const diff=Math.ceil((due-today)/86400000);
+  return diff<0?"overdue":diff<=3?"soon":"pending";
+}
+function billNextDate(b){
+  if(!b.recurring)return b.dueDate||"";
+  const d=new Date((b.dueDate||"")+"T00:00:00"), today=new Date(); today.setHours(0,0,0,0);
+  if(Number.isNaN(d.getTime()))return b.dueDate||"";
+  while(d<today){if(b.period==="weekly")d.setDate(d.getDate()+7);else if(b.period==="yearly")d.setFullYear(d.getFullYear()+1);else d.setMonth(d.getMonth()+1)}
+  return d.toISOString().slice(0,10);
+}
+function renderBills(){
+  const box=$("billsList");if(!box)return;
+  const bills=[...(db.bills||[])].sort((a,b)=>String(a.dueDate||"").localeCompare(String(b.dueDate||"")));
+  if(!bills.length){box.innerHTML='<div class="empty">Henüz fatura eklenmedi.</div>';return}
+  const labels={paid:"Ödendi",overdue:"Gecikti",soon:"Yaklaşıyor",pending:"Bekliyor",unknown:"Tarih yok"};
+  box.innerHTML=bills.map(b=>`<div class="list-row bill-row">
+    <div><b>${esc(b.name||"Fatura")}</b><small>${esc(b.category||"Diğer")} · Son ödeme: ${esc(billNextDate(b)||"-")}${b.recurring?" · Tekrarlı":""}</small></div>
+    <strong>${money(Number(b.amount)||0,b.currency||"TRY")}</strong><span class="status-pill ${billStatus(b)}">${labels[billStatus(b)]}</span>
+    <div class="row-actions">${!b.paid?`<button data-bill-pay="${b.id}">Ödendi</button>`:""}<button data-bill-edit="${b.id}">Düzenle</button><button class="danger" data-bill-delete="${b.id}">Sil</button></div>
+  </div>`).join("");
+  box.querySelectorAll("[data-bill-pay]").forEach(btn=>btn.onclick=()=>{const b=db.bills.find(x=>x.id===btn.dataset.billPay);if(b){b.paid=true;b.paidAt=new Date().toISOString();save();render()}});
+  box.querySelectorAll("[data-bill-delete]").forEach(btn=>btn.onclick=()=>{if(confirm("Bu faturayı silmek istediğine emin misin?")){db.bills=db.bills.filter(x=>x.id!==btn.dataset.billDelete);save();render()}});
+  box.querySelectorAll("[data-bill-edit]").forEach(btn=>btn.onclick=()=>{const b=db.bills.find(x=>x.id===btn.dataset.billEdit);if(!b)return;$("billId").value=b.id;$("billName").value=b.name||"";$("billCategory").value=b.category||"Diğer";$("billAmount").value=b.amount||"";$("billCurrency").value=b.currency||"TRY";$("billDueDate").value=b.dueDate||"";$("billRecurring").checked=!!b.recurring;$("billPeriod").value=b.period||"monthly";openModal("billModal")});
+}
+function renderBillSummary(){
+  const pending=(db.bills||[]).filter(x=>!x.paid);
+  if($("billTotal"))$("billTotal").textContent=money(pending.reduce((s,x)=>s+(Number(x.amount)||0),0),"TRY");
+  if($("billOverdue"))$("billOverdue").textContent=money(pending.filter(x=>billStatus(x)==="overdue").reduce((s,x)=>s+(Number(x.amount)||0),0),"TRY");
+  if($("billCount"))$("billCount").textContent=String(pending.length);
+}
+
 function render(){
+  renderBills();renderBillSummary();
   if($("memberCount"))$("memberCount").textContent=db.members.length;
   $("totalBalance").textContent=money(db.accounts.reduce((s,a)=>s+(Number(a.balance)||0),0),"TRY");
   const ym=new Date().toISOString().slice(0,7);
@@ -793,3 +839,6 @@ if(invType){
   };
   invType.addEventListener("change",updateInvestmentHelp);updateInvestmentHelp();
 }
+
+if($("billForm"))$("billForm").addEventListener("submit",e=>{e.preventDefault();const id=$("billId").value||uid(),old=db.bills.findIndex(x=>x.id===id);const item={id,name:$("billName").value.trim(),category:$("billCategory").value,amount:Number($("billAmount").value)||0,currency:$("billCurrency").value||"TRY",dueDate:$("billDueDate").value,recurring:$("billRecurring").checked,period:$("billPeriod").value,paid:old>=0?!!db.bills[old].paid:false};if(old>=0)db.bills[old]=item;else db.bills.push(item);save();closeModal("billModal");render()});
+if($("addBill"))$("addBill").onclick=()=>{$("billId").value="";$("billForm").reset();$("billCurrency").value="TRY";$("billPeriod").value="monthly";openModal("billModal")};
