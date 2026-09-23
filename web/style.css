@@ -50,3 +50,12 @@ input,select,textarea{background:var(--surface);color:var(--text);border-color:v
 .modal{align-items:center;padding:20px}.modalbox{border-radius:22px;box-shadow:0 25px 80px #0004;max-height:90vh}
 @media(max-width:800px){body{padding-left:78px}.side-nav{width:78px;padding:92px 8px 12px}.nav-title{display:none}.side-nav button{justify-content:center;padding:12px}.side-nav button span{width:auto}.side-nav button:not(.active)::after{display:none}.side-nav button{font-size:0}.side-nav button span{font-size:19px}.side-nav button.active{font-size:0}.side-nav button.active span{font-size:19px}main{padding:20px 16px}.cards,.report-grid{grid-template-columns:repeat(2,1fr)}.settings-grid{grid-template-columns:1fr 1fr}.report-columns{grid-template-columns:1fr}.hero-card{padding:18px}.hero-value{font-size:22px}}
 @media(max-width:520px){.cards{grid-template-columns:1fr 1fr}.settings-grid{grid-template-columns:1fr}.hero-card{align-items:flex-start}.hero-value{font-size:20px}.report-grid{grid-template-columns:1fr 1fr}.modal{padding:8px}.modalbox{width:100%;max-height:94vh}.row{flex-wrap:wrap}}
+
+/* Aile Finans v40 popup menu */
+.menu-toggle{position:fixed;left:16px;top:70px;z-index:30001;border:0;border-radius:12px;padding:10px 13px;background:var(--surface,#fff);box-shadow:0 8px 24px #0002;font-size:20px;cursor:pointer}
+.menu-overlay{display:none;position:fixed;inset:0;background:#0006;z-index:29999}
+.side-nav{transform:translateX(-110%);transition:transform .22s ease;z-index:30000}
+body.menu-open .side-nav{transform:translateX(0)}
+body.menu-open .menu-overlay{display:block}
+body{padding-left:0!important}
+@media(max-width:800px){.side-nav{width:260px;padding:88px 14px 18px}.side-nav button{justify-content:flex-start;font-size:14px}.side-nav button span{font-size:18px;width:22px}.side-nav button.active{font-size:14px}.side-nav button.active span{font-size:18px}main{padding:20px 16px}}

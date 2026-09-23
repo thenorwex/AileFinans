@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
-<title>Aile Finans v24</title>
+<title>Aile Finans v40</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body><button id="menuToggle" class="menu-toggle" aria-label="Menüyü aç">☰</button><div id="menuOverlay" class="menu-overlay"></div>
@@ -47,7 +47,7 @@
   </section>
 
   <section class="tab" data-page="investments">
-    <div class="page-head"><div><h2>Yatırımlar</h2><p class="muted">Fiyatlar otomatik güncellenir.</p></div><div><button id="refreshInvestments">↻ Güncelle</button><button class="primary" id="addInvestment">+ Yatırım</button></div></div>
+    <div class="page-head"><div><h2>Yatırımlar</h2><p class="muted">Fiyatları sen manuel gir. Kâr/zarar otomatik hesaplanır.</p></div><button class="primary" id="addInvestment">+ Yatırım</button></div>
     <div id="investmentList"></div>
   </section>
 
@@ -119,22 +119,6 @@
       <label>Uygulama adı<input id="settingAppName" maxlength="40"></label>
       <label>Ana para birimi<select id="settingCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select></label>
       <label>Görünüm<select id="settingTheme"><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label>
-    </div>
-    <div class="settings-section"><h4>Otomatik güncelleme</h4>
-      <label>Yatırım fiyat sıklığı<select id="settingRefresh"><option value="30">30 saniye</option><option value="60">1 dakika</option><option value="120">2 dakika</option><option value="300">5 dakika</option></select></label>
-      <label class="checkline"><input type="checkbox" id="settingAutoUpdate"> Yatırım fiyatlarını otomatik güncelle</label>
-    </div>
-    <div class="settings-section"><h4>Yatırım fiyat sağlayıcısı</h4>
-      <p class="muted">Varsayılan kaynak XAUS canlı altın verisidir. Tarayıcıdan doğrudan çalışır ve API anahtarı istemez. Kendi API kaynağını kullanmak istersen Özel kaynak seçebilirsin.</p>
-      <label>Fiyat kaynağı<select id="settingPriceSource"><option value="builtin">Otomatik / XAUS (önerilen)</option><option value="custom">Özel site / API</option></select></label>
-    </div>
-    <div class="settings-section" id="customPriceSettings"><h4>Özel yatırım fiyat kaynağı</h4>
-      <p class="muted">Özellikle altın için kullandığın sitenin fiyatını otomatik çekmek için. URL'yi ve gerekiyorsa CSS seçiciyi/JSON yolunu gir.</p>
-      <label>Site / API linki<input id="settingPriceUrl" type="url" placeholder="https://ornek.com/altin"></label>
-      <label>Kaynak türü<select id="settingPriceMode"><option value="auto">Otomatik</option><option value="html">Web sayfası</option><option value="json">JSON / API</option></select></label>
-      <label>CSS fiyat seçicisi <small>(web sayfası için)</small><input id="settingPriceSelector" placeholder=".gold-price, #gram-altin"></label>
-      <label>JSON fiyat yolu <small>(JSON / API için)</small><input id="settingPriceJsonPath" placeholder="data.price"></label>
-      <label>Regex <small>(gerekirse)</small><input id="settingPriceRegex" placeholder="Gram Altın[^0-9]*([0-9.,]+)"></label>
     </div>
     <div class="settings-section"><h4>Harcama kategorileri</h4>
       <textarea id="settingCategories" rows="4" placeholder="Market, Yakıt, Fatura..."></textarea>
@@ -258,9 +242,9 @@
   </div>
 </div>
 
-<script src="app.js"></script>
+
 <div id="toast" class="toast" aria-live="polite"></div>
-<div class="modal" id="billModal"><div class="modal-card">
+<div class="modal" id="billModal" hidden><div class="modalbox">
 <div class="modal-head"><h3>Fatura</h3><button data-close="billModal">×</button></div>
 <form id="billForm"><input type="hidden" id="billId">
 <label>Fatura adı<input id="billName" required placeholder="Elektrik"></label>
@@ -269,5 +253,6 @@
 <label>Son ödeme tarihi<input id="billDueDate" type="date" required></label>
 <label class="check"><input id="billRecurring" type="checkbox"> Düzenli fatura</label>
 <label>Tekrar sıklığı<select id="billPeriod"><option value="monthly">Aylık</option><option value="weekly">Haftalık</option><option value="yearly">Yıllık</option></select></label>
-<button class="primary" type="submit">Kaydet</button></form></div></div><div class="modal" id="manualPriceModal" hidden><div class="modalbox"><h3>Yatırım Fiyatı Gir</h3><form id="manualPriceForm"><input type="hidden" id="manualPriceId"><label>Fiyat<input id="manualPriceValue" type="number" step="0.0001" min="0" required></label><label>Tarih<input id="manualPriceDate" type="date" required></label><label>Not<input id="manualPriceNote" placeholder="Örn. banka alış fiyatı"></label><div class="row"><button type="button" data-close="manualPriceModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div></body>
+<button class="primary" type="submit">Kaydet</button></form></div></div><div class="modal" id="manualPriceModal" hidden><div class="modalbox"><h3>Yatırım Fiyatı Gir</h3><form id="manualPriceForm"><input type="hidden" id="manualPriceId"><label>Fiyat<input id="manualPriceValue" type="number" step="0.0001" min="0" required></label><label>Tarih<input id="manualPriceDate" type="date" required></label><label>Not<input id="manualPriceNote" placeholder="Örn. banka alış fiyatı"></label><div class="row"><button type="button" data-close="manualPriceModal">İptal</button><button class="primary">Kaydet</button></div></form></div></div><script src="app.js"></script>
+</body>
 </html>
