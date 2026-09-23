@@ -8,15 +8,27 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="topbar"><h1>Aile Finans</h1><span id="status">Hazır</span></header>
+<header class="topbar"><div class="brand"><span class="brand-mark">₺</span><div><h1>Aile Finans</h1><small id="appSubtitle">Aile bütçesi</small></div></div><span id="status">Hazır</span></header>
+
+<aside class="side-nav" id="sideNav">
+  <div class="nav-title">MENÜ</div>
+  <button data-page="home" class="active"><span>⌂</span> Ana Sayfa</button>
+  <button data-page="expenses"><span>↘</span> Harcamalar</button>
+  <button data-page="investments"><span>◈</span> Yatırımlar</button>
+  <button data-page="vehicles"><span>▣</span> Araçlar</button>
+  <button data-page="reports"><span>▤</span> Raporlar</button>
+  <button data-page="more"><span>⚙</span> Daha Fazla</button>
+</aside>
 
 <main id="app">
   <section class="tab active" data-page="home">
     <h2>Özet</h2>
+    <div class="hero-card"><div><small>Bu Ay</small><h2 id="homeMonthLabel">Finans özeti</h2><p>Gelir, gider ve yatırımlarını tek ekranda takip et.</p></div><div class="hero-value" id="homeNet">₺0</div></div>
     <div class="cards">
-      <div class="card"><small>Toplam Hesap</small><b id="totalBalance">₺0</b></div>
-      <div class="card"><small>Bu Ay Gider</small><b id="monthExpense">₺0</b></div>
-      <div class="card"><small>Üyeler</small><b id="memberCount">0</b></div>
+      <div class="card accent"><small>Toplam Bakiye</small><b id="totalBalance">₺0</b></div>
+      <div class="card"><small>Bu Ay Gelir</small><b id="monthIncome">₺0</b></div>
+      <div class="card"><small>Bu Ay Gider</small><b id="monthExpense">₺0</b></div><div class="card"><small>Üyeler</small><b id="memberCount">0</b></div>
+      <div class="card"><small>Yatırım Değeri</small><b id="investmentTotal">₺0</b></div>
     </div>
     <div class="panel">
       <h3>Üyeler</h3><div id="homeMembers"></div>
@@ -30,8 +42,7 @@
   </section>
 
   <section class="tab" data-page="investments">
-    <h2>Yatırımlar</h2>
-    <button class="primary" id="addInvestment">+ Yatırım</button>
+    <div class="page-head"><div><h2>Yatırımlar</h2><p class="muted">Fiyatlar otomatik güncellenir.</p></div><div><button id="refreshInvestments">↻ Güncelle</button><button class="primary" id="addInvestment">+ Yatırım</button></div></div>
     <div id="investmentList"></div>
   </section>
 
@@ -41,27 +52,23 @@
   </section>
 
   <section class="tab" data-page="reports">
-    <h2>Raporlar</h2>
-    <div class="panel"><div id="reportText"></div></div>
+    <div class="page-head"><div><h2>Raporlar</h2><p class="muted">Airbnb kazanç ekranı gibi, aile finansının genel görünümü.</p></div><button id="reportMonthBtn">Bu Ay</button></div>
+    <div id="reportText"></div>
   </section>
 
   <section class="tab" data-page="more">
     <h2>Daha Fazla</h2>
-    <button id="openMembers">Üye Yönetimi</button>
-    <button id="openAccounts">Hesap / Kart Yönetimi</button>
-    <button id="openVehicles">Araçlar</button>
-    <button id="openBills">Faturalar</button>
+    <div class="settings-grid">
+      <button class="setting-tile" id="openMembers"><span>👥</span><b>Üye Yönetimi</b><small>Aile üyeleri</small></button>
+      <button class="setting-tile" id="openAccounts"><span>💳</span><b>Hesap / Kart</b><small>Bakiye ve kartlar</small></button>
+      <button class="setting-tile" id="openVehicles"><span>🚗</span><b>Araçlar</b><small>Km, yakıt, bakım</small></button>
+      <button class="setting-tile" id="openBills"><span>🧾</span><b>Faturalar</b><small>Düzenli ödemeler</small></button>
+      <button class="setting-tile" id="openIncome"><span>💰</span><b>Gelir Ekle</b><small>Maaş, kira, diğer</small></button>
+      <button class="setting-tile" id="openSettings"><span>⚙️</span><b>Ayarlar</b><small>Uygulamayı özelleştir</small></button>
+    </div>
   </section>
 </main>
 
-<nav class="bottom-nav" id="bottomNav">
-  <button data-page="home" class="active">Ana Sayfa</button>
-  <button data-page="expenses">Harcamalar</button>
-  <button data-page="investments">Yatırımlar</button>
-  <button data-page="vehicles">Araçlar</button>
-  <button data-page="reports">Raporlar</button>
-  <button data-page="more">Daha Fazla</button>
-</nav>
 
 <div class="modal" id="investmentModal" hidden>
   <div class="modalbox"><h3>Yatırım Ekle</h3>
@@ -71,7 +78,8 @@
         <option value="stock">Hisse Senedi</option><option value="fund">Fon</option><option value="manual">Diğer</option>
       </select>
       <input id="investmentName" required placeholder="Yatırım adı (örn. Gram Altın / Bitcoin)">
-      <input id="investmentSymbol" placeholder="Kod / CoinGecko ID / Hisse kodu">
+      <input id="investmentSymbol" placeholder="Kod (BTC: bitcoin, döviz: USD, hisse: AAPL)">
+      <small class="field-help">Altın için kod boş bırakılabilir. Kriptoda CoinGecko ID kullanılır.</small>
       <input id="investmentQuantity" type="number" min="0" step="0.00000001" required placeholder="Miktar">
       <input id="investmentBuyPrice" type="number" min="0" step="0.00000001" placeholder="Alış birim fiyatı">
       <select id="investmentCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select>
@@ -79,6 +87,45 @@
       <input id="investmentNote" placeholder="Not">
       <div class="row"><button type="button" data-close="investmentModal">İptal</button><button class="primary">Kaydet</button></div>
     </form>
+  </div>
+</div>
+
+<div class="modal" id="incomeModal" hidden>
+  <div class="modalbox"><h3>Gelir Ekle</h3>
+    <form id="incomeForm">
+      <input id="incomeTitle" required placeholder="Gelir açıklaması (örn. Maaş)">
+      <input id="incomeAmount" required type="number" min="0" step="0.01" placeholder="Tutar">
+      <select id="incomeCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select>
+      <select id="incomeMember"><option value="">Üye seç</option></select>
+      <select id="incomeAccount"><option value="">Hesaba ekleme</option></select>
+      <input id="incomeDate" type="date" required>
+      <input id="incomeNote" placeholder="Not">
+      <div class="row"><button type="button" data-close="incomeModal">İptal</button><button class="primary">Kaydet</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="settingsModal" hidden>
+  <div class="modalbox settings-box"><h3>Ayarlar</h3>
+    <div class="settings-section"><h4>Genel</h4>
+      <label>Uygulama adı<input id="settingAppName" maxlength="40"></label>
+      <label>Ana para birimi<select id="settingCurrency"><option value="TRY">TRY ₺</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select></label>
+      <label>Görünüm<select id="settingTheme"><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label>
+    </div>
+    <div class="settings-section"><h4>Otomatik güncelleme</h4>
+      <label>Yatırım fiyat sıklığı<select id="settingRefresh"><option value="30">30 saniye</option><option value="60">1 dakika</option><option value="120">2 dakika</option><option value="300">5 dakika</option></select></label>
+      <label class="checkline"><input type="checkbox" id="settingAutoUpdate"> Yatırım fiyatlarını otomatik güncelle</label>
+    </div>
+    <div class="settings-section"><h4>Harcama kategorileri</h4>
+      <textarea id="settingCategories" rows="4" placeholder="Market, Yakıt, Fatura..."></textarea>
+      <button id="saveCategorySettings" class="primary">Kategorileri Kaydet</button>
+    </div>
+    <div class="settings-section"><h4>Veri yönetimi</h4>
+      <div class="row"><button id="exportData">Yedeği Dışa Aktar</button><button id="importDataBtn">Yedek Yükle</button></div>
+      <input id="importData" type="file" accept="application/json" hidden>
+      <button id="clearData" class="danger">Tüm Verileri Sil</button>
+    </div>
+    <div class="row"><button data-close="settingsModal">Kapat</button><button id="saveSettings" class="primary">Ayarları Kaydet</button></div>
   </div>
 </div>
 
@@ -192,5 +239,6 @@
 </div>
 
 <script src="app.js"></script>
+<div id="toast" class="toast" aria-live="polite"></div>
 </body>
 </html>

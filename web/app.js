@@ -11,6 +11,7 @@ let db={
   investments:[],
   vehicles:[],
   bills:[],
+  incomes:[],
   expenseCategories:["Market","Yakıt","Fatura","Sağlık","Kira","Alışveriş","Restoran","Eğitim","Diğer"]
 };
 
@@ -48,9 +49,10 @@ function load(){
   if(!Array.isArray(db.vehicleFuelLogs))db.vehicleFuelLogs=[];
   if(!Array.isArray(db.vehicleServices))db.vehicleServices=[];
   if(!Array.isArray(db.vehicleDocuments))db.vehicleDocuments=[];
-  for(const k of ["members","accounts","expenses","investments","vehicles","bills"]){
+  for(const k of ["members","accounts","expenses","investments","vehicles","bills","incomes"]){
     if(!Array.isArray(db[k]))db[k]=[];
   }
+  db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:60,autoUpdate:true,...(db.settings||{})};
 }
 
 function fileToDataUrl(file){
@@ -68,78 +70,122 @@ function photoThumb(x){
 
 
 const investmentTypeLabel={gold:"Altın",crypto:"Kripto",currency:"Döviz",stock:"Hisse",fund:"Fon",manual:"Diğer"};
+let investmentTimer=null;
+function investmentCurrency(x){return x.currency||db.settings.currency||"TRY";}
 function investmentCard(x){
   const live=Number(x.livePrice), qty=Number(x.quantity)||0, value=Number.isFinite(live)&&live>0?live*qty:null;
   const cost=(Number(x.buyPrice)||0)*qty;
   const diff=value==null?null:value-cost;
-  const change=diff==null?"" : `<span class="${diff>=0?"gain":"loss"}">${diff>=0?"+":""}${money(diff,x.currency||"TRY")}</span>`;
-  const status=x.liveUpdatedAt?`<span class="muted">Güncelleme: ${new Date(x.liveUpdatedAt).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})}</span>`:"<span class=\"muted\">Canlı fiyat bekleniyor</span>";
-  return `<div class="item investment-card"><span><b>${escapeHtml(x.name)}</b><br><span class="muted">${investmentTypeLabel[x.type]||"Diğer"} · ${qty} ${x.type==="gold"?"g":""}</span><br>${status}</span><span class="investment-value"><b>${value==null?"—":money(value,x.currency||"TRY")}</b><br>${change}</span></div>`;
+  const c=investmentCurrency(x);
+  const change=diff==null?"":`<span class="${diff>=0?"gain":"loss"}">${diff>=0?"+":""}${money(diff,c)}</span>`;
+  const status=x.liveUpdatedAt?`<span class="live-dot"></span> Güncellendi ${new Date(x.liveUpdatedAt).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}`:`<span class="muted">Fiyat bekleniyor</span>`;
+  return `<div class="item investment-card"><span><b>${escapeHtml(x.name)}</b><br><span class="muted">${investmentTypeLabel[x.type]||"Diğer"} · ${qty}${x.type==="gold"?" g":""}</span><br><small class="live-status">${status}</small></span><span class="investment-value"><b>${value==null?"—":money(value,c)}</b><br>${change}</span></div>`;
 }
-async function fetchJson(url){
-  const r=await fetch(url,{cache:"no-store"});
-  if(!r.ok)throw new Error("HTTP "+r.status);
-  return r.json();
+async function fetchJson(url,timeout=10000){
+  const ctrl=new AbortController(), t=setTimeout(()=>ctrl.abort(),timeout);
+  try{
+    const r=await fetch(url,{cache:"no-store",signal:ctrl.signal});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    return await r.json();
+  }finally{clearTimeout(t)}
+}
+async function fetchFirst(urls){
+  let last=null;
+  for(const u of urls){try{return await fetchJson(u)}catch(e){last=e}}
+  throw last||new Error("Kaynak yok");
+}
+function pickQuote(data, currency){
+  const row=data?.symbols?.[0];
+  if(!row?.price)return null;
+  return Number(row.price);
+}
+async function getGoldTRY(){
+  const d=await fetchFirst([
+    "https://api.goldprice.dev/v1/carat?currency=TRY",
+    "https://api.goldprice.dev/v1/prices?symbol=XAU-TRY-SPOT"
+  ]);
+  if(d.price_gram_24k)return Number(d.price_gram_24k);
+  const p=pickQuote(d,"TRY");
+  return p?Number(p):null;
+}
+async function getGold(currency){
+  if(currency==="TRY")return getGoldTRY();
+  const d=await fetchJson("https://api.goldprice.dev/v1/carat?currency="+encodeURIComponent(currency));
+  return Number(d.price_gram_24k)||null;
+}
+async function getCrypto(ids,currencies){
+  if(!ids.length)return {};
+  const d=await fetchFirst([
+    "https://api.coingecko.com/api/v3/simple/price?ids="+encodeURIComponent(ids.join(","))+"&vs_currencies="+currencies.join(","),
+    "https://api.coingecko.com/api/v3/simple/price?ids="+encodeURIComponent(ids.join(","))+"&vs_currencies=usd"
+  ]);
+  const out={};
+  for(const id of ids)out[id]=d[id]||{};
+  return out;
 }
 async function updateInvestments(){
-  const list=db.investments;
-  if(!list.length)return;
+  const list=db.investments||[];
+  if(!list.length){renderReport();return}
   const now=Date.now();
-  const byType={crypto:list.filter(x=>x.type==="crypto"&&x.symbol),gold:list.filter(x=>x.type==="gold"),currency:list.filter(x=>x.type==="currency"&&x.symbol),stock:list.filter(x=>(x.type==="stock"||x.type==="fund")&&x.symbol)};
-  const prices={};
-  try{
-    const ids=[...new Set(byType.crypto.map(x=>x.symbol.trim().toLowerCase()))];
-    if(ids.length){
-      const data=await fetchJson("https://api.coingecko.com/api/v3/simple/price?ids="+encodeURIComponent(ids.join(","))+"&vs_currencies=try");
-      for(const id of ids)if(data[id]?.try!=null)prices["crypto:"+id]=Number(data[id].try);
-    }
-  }catch(e){}
-  try{
-    if(byType.gold.length){
-      const gold=await fetchJson("https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT");
-      const ounce=Number(gold.symbols?.[0]?.price);
-      const fx=await fetchJson("https://api.frankfurter.dev/v2/rate/usd/try");
-      const gram=ounce*Number(fx.rate)/31.1034768;
-      if(Number.isFinite(gram))byType.gold.forEach(x=>prices["gold"]=gram);
-    }
-  }catch(e){}
-  try{
-    const codes=[...new Set(byType.currency.map(x=>x.symbol.toUpperCase()).filter(c=>["USD","EUR","GBP","CHF","JPY"].includes(c)))];
-    if(codes.length){
-      const rows=await fetchJson("https://api.frankfurter.dev/v2/rates?base=TRY&quotes="+codes.join(","));
-      const map={};(rows||[]).forEach(r=>map[r.quote]=1/Number(r.rate));
-      byType.currency.forEach(x=>{if(map[x.symbol.toUpperCase()])prices["currency:"+x.symbol.toUpperCase()]=map[x.symbol.toUpperCase()]});
-    }
-  }catch(e){}
-  // Yahoo quote is used as an optional live source for stocks/funds; if blocked, old price remains.
-  await Promise.all(byType.stock.map(async x=>{
+  const groups={};
+  list.forEach(x=>{const key=x.type+":"+investmentCurrency(x);(groups[key]??=[]).push(x)});
+  let success=0;
+  for(const [key,items] of Object.entries(groups)){
+    const [type,currency]=key.split(":");
     try{
-      const d=await fetchJson("https://query1.finance.yahoo.com/v8/finance/chart/"+encodeURIComponent(x.symbol)+"?range=1d&interval=1m");
-      const q=d.chart?.result?.[0]?.meta?.regularMarketPrice;
-      if(q!=null)prices["stock:"+x.symbol.toUpperCase()]=Number(q);
+      if(type==="gold"){
+        const p=await getGold(currency);
+        if(Number.isFinite(p)&&p>0)items.forEach(x=>{x.livePrice=p;x.liveUpdatedAt=now;success++});
+      }else if(type==="crypto"){
+        const ids=[...new Set(items.map(x=>x.symbol.trim().toLowerCase()).filter(Boolean))];
+        const prices=await getCrypto(ids,[currency.toLowerCase()]);
+        items.forEach(x=>{const p=Number(prices[x.symbol.trim().toLowerCase()]?.[currency.toLowerCase()]??prices[x.symbol.trim().toLowerCase()]?.usd);if(Number.isFinite(p)&&p>0){x.livePrice=p;x.liveUpdatedAt=now;success++}});
+      }else if(type==="currency"){
+        const symbols=[...new Set(items.map(x=>x.symbol.trim().toUpperCase()).filter(Boolean))];
+        for(const sym of symbols){
+          if(sym===currency){items.filter(x=>x.symbol.trim().toUpperCase()===sym).forEach(x=>{x.livePrice=1;x.liveUpdatedAt=now;success++});continue}
+          const d=await fetchJson("https://api.frankfurter.dev/v2/rate/"+encodeURIComponent(sym)+"/"+encodeURIComponent(currency));
+          const p=Number(d.rate);
+          items.filter(x=>x.symbol.trim().toUpperCase()===sym).forEach(x=>{if(p>0){x.livePrice=p;x.liveUpdatedAt=now;success++}});
+        }
+      }else if(type==="stock"||type==="fund"){
+        for(const x of items){
+          if(!x.symbol)continue;
+          try{
+            const d=await fetchFirst([
+              "https://query1.finance.yahoo.com/v8/finance/chart/"+encodeURIComponent(x.symbol)+"?range=1d&interval=1m",
+              "https://query2.finance.yahoo.com/v8/finance/chart/"+encodeURIComponent(x.symbol)+"?range=1d&interval=1m"
+            ]);
+            const r=d.chart?.result?.[0], p=Number(r?.meta?.regularMarketPrice);
+            if(p>0){x.livePrice=p;x.liveUpdatedAt=now;success++}
+          }catch(e){}
+        }
+      }
     }catch(e){}
-  }));
-  list.forEach(x=>{
-    let p=null;
-    if(x.type==="gold")p=prices.gold;
-    else if(x.type==="crypto")p=prices["crypto:"+x.symbol.trim().toLowerCase()];
-    else if(x.type==="currency")p=prices["currency:"+x.symbol.toUpperCase()];
-    else if(x.type==="stock"||x.type==="fund")p=prices["stock:"+x.symbol.toUpperCase()];
-    if(Number.isFinite(p)&&p>0){x.livePrice=p;x.liveUpdatedAt=now;}
-  });
-  save();render();
+  }
+  save();
+  render();
+  $("status").textContent=success?"Yatırımlar güncellendi":"Son fiyatlar korunuyor";
 }
-let investmentRefreshTimer=null;
 function startInvestmentRefresh(){
-  clearInterval(investmentRefreshTimer);
-  updateInvestments();
-  investmentRefreshTimer=setInterval(updateInvestments,60000);
+  clearInterval(investmentTimer);
+  if(db.settings.autoUpdate!==false){
+    updateInvestments();
+    investmentTimer=setInterval(updateInvestments,Math.max(30,Number(db.settings.refreshSeconds)||60)*1000);
+  }
 }
 function render(){
-  $("memberCount").textContent=db.members.length;
+  if($("memberCount"))$("memberCount").textContent=db.members.length;
   $("totalBalance").textContent=money(db.accounts.reduce((s,a)=>s+(Number(a.balance)||0),0),"TRY");
   const ym=new Date().toISOString().slice(0,7);
-  $("monthExpense").textContent=money(db.expenses.filter(x=>String(x.date||"").slice(0,7)===ym).reduce((s,x)=>s+(Number(x.amount)||0),0),"TRY");
+  const monthIncomeValue=(db.incomes||[]).filter(x=>String(x.date||"").slice(0,7)===ym).reduce((s,x)=>s+(Number(x.amount)||0),0);
+  const monthExpenseValue=db.expenses.filter(x=>String(x.date||"").slice(0,7)===ym).reduce((s,x)=>s+(Number(x.amount)||0),0);
+  const investmentValue=(db.investments||[]).reduce((s,x)=>s+(Number(x.livePrice)>0?Number(x.livePrice)*Number(x.quantity||0):0),0);
+  $("monthExpense").textContent=money(monthExpenseValue,"TRY");
+  if($("monthIncome"))$("monthIncome").textContent=money(monthIncomeValue,"TRY");
+  if($("investmentTotal"))$("investmentTotal").textContent=money(investmentValue,"TRY");
+  if($("homeNet"))$("homeNet").textContent=money(monthIncomeValue-monthExpenseValue,"TRY");
+  if($("homeMonthLabel"))$("homeMonthLabel").textContent=new Intl.DateTimeFormat("tr-TR",{month:"long",year:"numeric"}).format(new Date());
 
   $("homeMembers").innerHTML=db.members.length
     ? db.members.map((m,i)=>`<div class="item"><span>${escapeHtml(m)}</span><button data-remove-member="${i}">Sil</button></div>`).join("")
@@ -159,9 +205,98 @@ function render(){
     ? db.vehicles.map(v=>`<div class="item"><span><b>${escapeHtml(v.name)}</b><br><span class="muted">${escapeHtml(v.plate||"Plaka yok")} · ${vehicleKm(v).toLocaleString("tr-TR")} km</span></span><button data-open-vehicle="${v.id}">Aç</button></div>`).join("")
     : `<div class="empty">Henüz araç eklenmedi.</div>`;
 
-  $("reportText").innerHTML=`<b>${db.members.length}</b> üye, <b>${db.accounts.length}</b> hesap/kart, <b>${db.expenses.length}</b> harcama, <b>${db.investments.length}</b> yatırım ve <b>${db.vehicles.length}</b> araç kaydı var.`;
+  renderReport();
+  renderSettings();
 }
 
+
+function renderReport(){
+  const ym=new Date().toISOString().slice(0,7);
+  const monthName=new Intl.DateTimeFormat("tr-TR",{month:"long",year:"numeric"}).format(new Date());
+  const incomes=(db.incomes||[]).filter(x=>String(x.date||"").slice(0,7)===ym);
+  const expenses=db.expenses.filter(x=>String(x.date||"").slice(0,7)===ym);
+  const income=incomes.reduce((s,x)=>s+Number(x.amount||0),0);
+  const expense=expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const net=income-expense;
+  const cats={}; expenses.forEach(x=>cats[x.category||"Diğer"]=(cats[x.category||"Diğer"]||0)+Number(x.amount||0));
+  const inv=(db.investments||[]).reduce((s,x)=>s+(Number(x.livePrice)>0?Number(x.livePrice)*Number(x.quantity||0):0),0);
+  const fuel=(db.vehicleFuelLogs||[]).filter(x=>String(x.date||"").slice(0,7)===ym).reduce((s,x)=>s+Number(x.total||0),0);
+  const service=(db.vehicleServices||[]).filter(x=>String(x.date||"").slice(0,7)===ym).reduce((s,x)=>s+Number(x.cost||0),0);
+  const catRows=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>`<div class="report-row"><span>${escapeHtml(k)}</span><b>${money(v,"TRY")}</b></div>`).join("")||'<div class="empty">Bu ay harcama yok.</div>';
+  $("reportText").innerHTML=`
+    <div class="report-hero"><div><small>${monthName}</small><h3>Net Nakit Akışı</h3><div class="report-big ${net>=0?"gain":"loss"}">${net>=0?"+":""}${money(net,"TRY")}</div></div><span class="report-icon">₺</span></div>
+    <div class="report-grid">
+      <div class="report-card"><small>Gelir</small><b>${money(income,"TRY")}</b><span>${incomes.length} işlem</span></div>
+      <div class="report-card"><small>Gider</small><b>${money(expense,"TRY")}</b><span>${expenses.length} işlem</span></div>
+      <div class="report-card"><small>Yatırım Değeri</small><b>${money(inv,"TRY")}</b><span>${db.investments.length} yatırım</span></div>
+      <div class="report-card"><small>Araç Gideri</small><b>${money(fuel+service,"TRY")}</b><span>Yakıt + bakım</span></div>
+    </div>
+    <div class="report-columns"><div class="panel"><h3>Harcama Dağılımı</h3>${catRows}</div>
+      <div class="panel"><h3>Finans Özeti</h3><div class="report-row"><span>Toplam hesap bakiyesi</span><b>${money(db.accounts.reduce((s,a)=>s+Number(a.balance||0),0),"TRY")}</b></div><div class="report-row"><span>Aile üyesi</span><b>${db.members.length}</b></div><div class="report-row"><span>Araç</span><b>${db.vehicles.length}</b></div><div class="report-row"><span>Yatırım</span><b>${db.investments.length}</b></div></div>
+    </div>`;
+}
+function renderSettings(){
+  const s=db.settings||{};
+  $("settingAppName").value=s.appName||"Aile Finans";
+  $("settingCurrency").value=s.currency||"TRY";
+  $("settingTheme").value=s.theme||"system";
+  $("settingRefresh").value=String(s.refreshSeconds||60);
+  $("settingAutoUpdate").checked=s.autoUpdate!==false;
+  $("settingCategories").value=(db.expenseCategories||[]).join(", ");
+  $("appSubtitle").textContent=s.appName==="Aile Finans"?"Aile bütçesi":"Finans takip";
+}
+function applyTheme(){
+  const t=db.settings.theme||"system";
+  document.documentElement.dataset.theme=t;
+}
+function toast(msg){
+  const t=$("toast"); if(!t)return;
+  t.textContent=msg;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),2200);
+}
+$("openSettings").onclick=()=>{renderSettings();openModal("settingsModal")};
+$("saveSettings").onclick=()=>{
+  db.settings.appName=$("settingAppName").value.trim()||"Aile Finans";
+  db.settings.currency=$("settingCurrency").value;
+  db.settings.theme=$("settingTheme").value;
+  db.settings.refreshSeconds=Number($("settingRefresh").value)||60;
+  db.settings.autoUpdate=$("settingAutoUpdate").checked;
+  db.expenseCategories=$("settingCategories").value.split(",").map(x=>x.trim()).filter(Boolean);
+  save();applyTheme();startInvestmentRefresh();render();closeModal("settingsModal");toast("Ayarlar kaydedildi");
+};
+$("saveCategorySettings").onclick=()=>{
+  db.expenseCategories=$("settingCategories").value.split(",").map(x=>x.trim()).filter(Boolean);
+  save();render();toast("Kategoriler kaydedildi");
+};
+$("exportData").onclick=()=>{
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="aile-finans-yedek.json";a.click();URL.revokeObjectURL(a.href);toast("Yedek hazırlandı");
+};
+$("importDataBtn").onclick=()=>$("importData").click();
+$("importData").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const x=JSON.parse(await f.text());if(!x||typeof x!=="object"||!Array.isArray(x.expenses))throw new Error();
+    db={...db,...x};db.settings={appName:"Aile Finans",currency:"TRY",theme:"system",refreshSeconds:60,autoUpdate:true,...(x.settings||{})};save();applyTheme();render();startInvestmentRefresh();toast("Yedek yüklendi");
+  }catch(err){toast("Yedek dosyası geçersiz");}e.target.value="";
+});
+$("clearData").onclick=()=>{
+  if(!confirm("Tüm aile finans verileri silinecek. Bu işlem geri alınamaz. Devam edilsin mi?"))return;
+  const keep={settings:db.settings,expenseCategories:db.expenseCategories};
+  db={members:[],accounts:[],expenses:[],investments:[],vehicles:[],bills:[],incomes:[],vehicleKmLogs:[],vehicleFuelLogs:[],vehicleServices:[],vehicleDocuments:[],...keep};
+  save();render();toast("Veriler temizlendi");
+};
+$("openIncome").onclick=()=>{
+  $("incomeMember").innerHTML='<option value="">Üye seç</option>'+db.members.map(m=>`<option>${escapeHtml(m)}</option>`).join("");
+  $("incomeAccount").innerHTML='<option value="">Hesaba ekleme</option>'+db.accounts.map(a=>`<option value="${a.id}">${escapeHtml(a.name)} (${money(a.balance,a.currency)})</option>`).join("");
+  $("incomeDate").value=today();openModal("incomeModal");
+};
+$("incomeForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const amount=Number($("incomeAmount").value);if(!amount||amount<0)return;
+  const account=db.accounts.find(a=>a.id===$("incomeAccount").value);
+  db.incomes.push({id:uid(),title:$("incomeTitle").value.trim(),amount,currency:$("incomeCurrency").value,member:$("incomeMember").value,date:$("incomeDate").value||today(),accountId:account?.id||"",note:$("incomeNote").value.trim()});
+  if(account&&account.currency===$("incomeCurrency").value)account.balance+=amount;
+  save();$("incomeForm").reset();closeModal("incomeModal");render();toast("Gelir kaydedildi");
+});
 function escapeHtml(v){
   return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 }
@@ -182,16 +317,14 @@ function closeModal(id){
 
 function page(name){
   document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.page===name));
-  document.querySelectorAll("#bottomNav button").forEach(x=>x.classList.toggle("active",x.dataset.page===name));
+  document.querySelectorAll("#sideNav button").forEach(x=>x.classList.toggle("active",x.dataset.page===name));
+  if(name==="investments")updateInvestments();
+  if(name==="reports")renderReport();
   window.scrollTo(0,0);
 }
-
-/* ONE and only one navigation listener. */
-$("bottomNav").addEventListener("click",e=>{
-  const b=e.target.closest("button[data-page]");
-  if(!b)return;
-  e.preventDefault();
-  page(b.dataset.page);
+$("sideNav").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-page]"); if(!b)return;
+  e.preventDefault(); page(b.dataset.page);
 });
 
 /* ONE and only one member submit listener. */
@@ -226,6 +359,8 @@ $("accountForm").addEventListener("submit",e=>{
 
 /* Modal close buttons. */
 document.addEventListener("click",e=>{
+  const vo=e.target.closest("[data-open-vehicle]");
+  if(vo){const v=vehicleById(vo.dataset.openVehicle);if(v){openVehicle(v);setTimeout(()=>$("vehicleDetailModal").querySelector(".modalbox")?.scrollTo(0,0),0)}return;}
   const b=e.target.closest("[data-close]");
   if(b){e.preventDefault();closeModal(b.dataset.close);return}
   const rm=e.target.closest("[data-remove-member]");
@@ -493,8 +628,11 @@ $("investmentForm").addEventListener("submit",e=>{
   db.investments.push({id:uid(),type:$("investmentType").value,name:$("investmentName").value.trim(),symbol:$("investmentSymbol").value.trim(),quantity:qty,buyPrice:buy,currency:$("investmentCurrency").value,buyDate:$("investmentBuyDate").value,note:$("investmentNote").value.trim(),livePrice:0,liveUpdatedAt:0});
   save();closeModal("investmentModal");render();updateInvestments();
 });
-startInvestmentRefresh();
+if($("refreshInvestments"))$("refreshInvestments").onclick=()=>{ $("status").textContent="Güncelleniyor..."; updateInvestments(); };
+
 
 load();
+applyTheme();
 render();
+startInvestmentRefresh();
 })();
