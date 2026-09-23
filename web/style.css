@@ -40,3 +40,9 @@ body{padding-bottom:90px}
 .bottom-nav{z-index:99999!important;position:fixed!important;bottom:0;left:0;right:0;pointer-events:auto!important}
 .bottom-nav button,.bottom-nav a{pointer-events:auto!important;touch-action:manipulation}
 .bottom-nav .active{font-weight:700}
+
+/* v18 navigation */
+.bottom-nav{z-index:99999!important;pointer-events:auto!important}
+.bottom-nav button{pointer-events:auto!important;touch-action:manipulation}
+.tab-section{display:none}
+.tab-section.active{display:block}

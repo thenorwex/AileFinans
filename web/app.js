@@ -1,4 +1,4 @@
-const KEY="ailefinans_v17";
+const KEY="ailefinans_data_v18";
 /* v17: single-source state + safe migration */
 function normalizeDB(raw){
   const x=(raw&&typeof raw==="object")?raw:{};
@@ -59,41 +59,46 @@ function today(){return new Date().toISOString().slice(0,10)}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.remove("show"),1800)}
 function openModal(id){const m=$(id);if(!m)return;m.hidden=false;m.setAttribute("aria-hidden","false");m.style.display="";m.classList.add("open")}
 function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open","show","active");m.setAttribute("aria-hidden","true");m.hidden=true;m.style.display="none"}
-function save(){ persistDB(); migrateLegacyData();
-render(); }
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(db));return true}
+  catch(e){console.error("DB save failed",e);toast("Kayıt sırasında hata oluştu");return false}
+}
 function load(){
-  let raw=localStorage.getItem(KEY);
-  if(!raw){
-    for(const k of VERSION_OLD_KEYS){const x=localStorage.getItem(k);if(x){raw=x;break}}
-  }
-  let x={};
-  try{x=raw?JSON.parse(raw):{}}catch(e){}
+  const keys=[KEY,"ailefinans_v17","ailefinans_v16","ailefinans_v15","ailefinans_v14","ailefinans_v13","ailefinans_v12","ailefinans_v11","ailefinans_v10","ailefinans_v9"];
+  const sources=[];
+  for(const k of keys){try{const raw=localStorage.getItem(k);if(raw)sources.push(JSON.parse(raw))}catch(e){}}
+  const uniqueArray=name=>{
+    const out=[],seen=new Set();
+    for(const s of sources){for(const item of (Array.isArray(s?.[name])?s[name]:[])){
+      const id=item?.id!=null?String(item.id):JSON.stringify(item);
+      if(!seen.has(id)){seen.add(id);out.push(item)}
+    }}
+    return out;
+  };
+  const members=[],seenMembers=new Set();
+  for(const s of sources){for(const item of (Array.isArray(s?.members)?s.members:[])){
+    const n=String(item).trim();
+    if(n&&!seenMembers.has(n)){seenMembers.add(n);members.push(n)}
+  }}
   db={
-    members:Array.isArray(x.members)&&x.members.length?x.members:["Sebahattin","Eşim"],
-    accounts:Array.isArray(x.accounts)?x.accounts.map(normalizeAccount):[],
-    expenses:Array.isArray(x.expenses)?x.expenses:[],
-    income:Array.isArray(x.income)?x.income:[],
-    transfers:Array.isArray(x.transfers)?x.transfers:[],
-    debts:Array.isArray(x.debts)?x.debts:[],
-    vehicles:Array.isArray(x.vehicles)?x.vehicles:[],
-    vehicleReminders:Array.isArray(x.vehicleReminders)?x.vehicleReminders:[],
-    bills:Array.isArray(x.bills)?x.bills:[],
-    investments:Array.isArray(x.investments)?x.investments:[],
-    investmentTransactions:Array.isArray(x.investmentTransactions)?x.investmentTransactions:[]
+    members:members.length?members:["Sebahattin","Eşim"],
+    accounts:uniqueArray("accounts").map(normalizeAccount),
+    expenses:uniqueArray("expenses"),income:uniqueArray("income"),
+    transfers:uniqueArray("transfers"),debts:uniqueArray("debts"),
+    vehicles:uniqueArray("vehicles"),vehicleReminders:uniqueArray("vehicleReminders"),
+    vehicleLogs:uniqueArray("vehicleLogs"),bills:uniqueArray("bills"),
+    investments:uniqueArray("investments"),investmentTransactions:uniqueArray("investmentTransactions")
   };
   db.debts=db.debts.map(x=>({...x,id:x.id||uid(),type:x.type||"debt",paid:Number(x.paid)||0,payments:Array.isArray(x.payments)?x.payments:[]}));
   db.income=db.income.map(x=>({...x,id:x.id||uid(),type:"income"}));
-  db.vehicleLogs=Array.isArray(x.vehicleLogs)?x.vehicleLogs:[];
   db.expenses=db.expenses.map(x=>({...x,id:x.id||uid(),type:"expense"}));
   db.transfers=db.transfers.map(x=>({...x,id:x.id||uid(),type:"transfer"}));
-  if(!db.accounts.length){
-    db.accounts=[
-      {id:uid(),name:"Nakit",type:"Nakit",balance:0,currency:"TRY"},
-      {id:uid(),name:"Banka Kartı",type:"Banka",balance:0,currency:"TRY"},
-      {id:uid(),name:"Kredi Kartı",type:"Kredi Kartı",balance:0,currency:"TRY"}
-    ];
-  }
-  localStorage.setItem(KEY,JSON.stringify(db));
+  if(!db.accounts.length)db.accounts=[
+    {id:uid(),name:"Nakit",type:"Nakit",balance:0,currency:"TRY"},
+    {id:uid(),name:"Banka Kartı",type:"Banka",balance:0,currency:"TRY"},
+    {id:uid(),name:"Kredi Kartı",type:"Kredi Kartı",balance:0,currency:"TRY"}
+  ];
+  try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}
 }
 let db={members:[],accounts:[],expenses:[],income:[],transfers:[],debts:[],vehicles:[]};
 let vehicleFilter=null;
@@ -251,9 +256,11 @@ function saveAccount(){
     closeModal("accountModal");
     try{save();toast("Hesap güncellendi")}catch(err){console.error(err);toast("Hesap kaydedildi ancak ekran yenilenemedi")}
   }else{
+    const membersSnapshot=[...db.members];
     db.accounts.push({id:uid(),name,type,balance,currency});
+    db.members=membersSnapshot;
     closeModal("accountModal");
-    try{save();toast("Hesap kaydedildi")}catch(err){console.error(err);toast("Hesap kaydedildi ancak ekran yenilenemedi")}
+    try{save();render();toast("Hesap kaydedildi")}catch(err){console.error(err);toast("Hesap kaydedildi ancak ekran yenilenemedi")}
   }
 }
 function deleteAccount(id){
@@ -267,7 +274,7 @@ function deleteAccount(id){
 $("addAccountBtn").onclick=openAccount;
 $("accountList").addEventListener("click",e=>{const ed=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");if(ed)editAccount(ed.dataset.edit);if(del)deleteAccount(del.dataset.delete)});
 $("addMemberBtn").onclick=()=>{ $("memberForm").reset();openModal("memberModal") };
-$("memberForm").onsubmit=e=>{e.preventDefault();const n=$("memberName").value.trim();if(!n)return;closeModal("memberModal");try{db.members.push(n);save();toast("Üye eklendi")}catch(err){console.error(err);toast("Üye kaydedilemedi")}};
+$("memberForm").onsubmit=e=>{e.preventDefault();const n=$("memberName").value.trim();if(!n)return;db.members.push(n);closeModal("memberModal");try{save();render();toast("Üye eklendi")}catch(err){console.error(err);toast("Üye kaydedilemedi")}};
 $("memberList").addEventListener("click",e=>{const b=e.target.closest("[data-member-delete]");if(!b)return;const i=Number(b.dataset.memberDelete);if(confirm(`"${db.members[i]}" silinsin mi?`)){db.members.splice(i,1);save();toast("Üye silindi")}});
 $("incomeTopBtn").onclick=()=>{$("incomeForm").reset();$("incomeDate").value=today();render();openModal("incomeModal")};
 $("incomeForm").onsubmit=e=>{e.preventDefault();const amount=Number($("incomeAmount").value);const currency=$("incomeCurrency").value;const account=$("incomeAccount").value;if(!amount||!account){toast("Tutar ve hesap gerekli");return}const a=db.accounts.find(x=>x.name===account);db.income.push({amount,currency,source:$("incomeSource").value.trim(),date:$("incomeDate").value,note:$("incomeNote").value.trim(),account});if(a&&a.currency===currency)a.balance+=amount;save();closeModal("incomeModal");toast("Gelir kaydedildi")};
@@ -596,6 +603,22 @@ $('billsModuleBtn')?.addEventListener('click',()=>{activateTab('more');setTimeou
 $('debtsModuleBtn')?.addEventListener('click',()=>{activateTab('more');setTimeout(()=>$('debtsCard')?.scrollIntoView({behavior:'smooth',block:'start'}),50)});
 
 load();render();
+
+// v18: deterministic bottom navigation
+function setupBottomNavigationV18(){
+  document.querySelectorAll(".bottom-nav button[data-tab]").forEach(function(btn){
+    btn.onclick=function(e){
+      e.preventDefault(); e.stopPropagation();
+      var target=document.getElementById(btn.dataset.tab);
+      if(!target)return;
+      document.querySelectorAll(".tab-section").forEach(function(x){x.classList.remove("active")});
+      target.classList.add("active");
+      document.querySelectorAll(".bottom-nav button").forEach(function(x){x.classList.toggle("active",x===btn)});
+      window.scrollTo(0,0);
+    };
+  });
+}
+setupBottomNavigationV18();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 
 setTimeout(()=>refreshInvestments(),800);
@@ -666,53 +689,4 @@ render();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 
 
-/* v17: independent bottom-tab router. Does not depend on render(). */
-(function(){
-  const aliases={
-    "ana sayfa":["home","homeSection","dashboard"],
-    "anasayfa":["home","homeSection","dashboard"],
-    "harcamalar":["expenses","expensesSection","expensesCard"],
-    "gelir":["income","incomeSection","incomeCard"],
-    "gelirler":["income","incomeSection","incomeCard"],
-    "yatırımlar":["investments","investmentsCard"],
-    "raporlar":["reports","reportsSection","reportsCard"],
-    "daha fazla":["more","moreSection","moreMenu"]
-  };
-  function getTarget(btn){
-    const direct=btn.dataset.tab||btn.dataset.target||btn.dataset.nav||btn.dataset.section||btn.getAttribute("href");
-    if(direct&&direct!=="#") return direct.replace(/^#/,"");
-    const t=btn.textContent.trim().toLowerCase();
-    const list=aliases[t]||[];
-    for(const id of list) if(document.getElementById(id)) return id;
-    return list[0]||null;
-  }
-  function showTarget(id){
-    let target=document.getElementById(id);
-    if(!target){
-      target=document.querySelector("#"+CSS.escape(id));
-    }
-    if(!target){
-      // Fallback by heading text.
-      const clean=id.replace(/Section|Card|Menu/g,"").toLowerCase();
-      const heads=[...document.querySelectorAll("h1,h2,h3")];
-      const h=heads.find(x=>x.textContent.trim().toLowerCase().includes(clean));
-      target=h?.closest(".card,section,main,[role='tabpanel']")||h;
-    }
-    if(!target) return false;
-    document.querySelectorAll(".app-tab,.tab-section,.tab-content,[role='tabpanel']").forEach(el=>{
-      if(el===target || el.contains(target)) el.classList.add("active");
-    });
-    document.querySelectorAll(".bottom-nav button,.bottom-nav a").forEach(b=>b.classList.remove("active"));
-    target.scrollIntoView({behavior:"smooth",block:"start"});
-    return true;
-  }
-  document.addEventListener("click",function(e){
-    const btn=e.target.closest(".bottom-nav button,.bottom-nav a");
-    if(!btn)return;
-    const id=getTarget(btn);
-    if(!id)return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    showTarget(id);
-  },true);
-})();
+;
