@@ -35,3 +35,8 @@ body{padding-bottom:90px}
 .modal[hidden]{display:none!important}
 .bottom-nav{z-index:9999;pointer-events:auto}
 .bottom-nav button{touch-action:manipulation;pointer-events:auto}
+
+/* v17 */
+.bottom-nav{z-index:99999!important;position:fixed!important;bottom:0;left:0;right:0;pointer-events:auto!important}
+.bottom-nav button,.bottom-nav a{pointer-events:auto!important;touch-action:manipulation}
+.bottom-nav .active{font-weight:700}

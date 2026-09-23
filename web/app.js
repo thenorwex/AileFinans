@@ -1,5 +1,54 @@
-const KEY="ailefinans_v13";
-const VERSION_OLD_KEYS=["ailefinans_v12","ailefinans_v11","ailefinans_v10","ailefinans_v9","ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
+const KEY="ailefinans_v17";
+/* v17: single-source state + safe migration */
+function normalizeDB(raw){
+  const x=(raw&&typeof raw==="object")?raw:{};
+  const arr=(v)=>Array.isArray(v)?v:[];
+  return {
+    members:arr(x.members),
+    accounts:arr(x.accounts),
+    expenses:arr(x.expenses),
+    income:arr(x.income),
+    debts:arr(x.debts),
+    bills:arr(x.bills),
+    investments:arr(x.investments),
+    investmentTransactions:arr(x.investmentTransactions),
+    vehicles:arr(x.vehicles),
+    health:arr(x.health),
+    settings:(x.settings&&typeof x.settings==="object")?x.settings:{}
+  };
+}
+function persistDB(){
+  try{ localStorage.setItem(KEY,JSON.stringify(db)); return true; }
+  catch(e){ console.error("DB save failed",e); return false; }
+}
+function migrateLegacyData(){
+  let merged=null;
+  const keys=["ailefinans_v16","ailefinans_v15","ailefinans_v14","ailefinans_v13","ailefinans_v12","ailefinans_v11","ailefinans_v10","ailefinans_v9"];
+  for(const k of keys){
+    try{
+      const raw=localStorage.getItem(k);
+      if(raw){ merged=normalizeDB(JSON.parse(raw)); break; }
+    }catch(e){}
+  }
+  if(merged){
+    const current=normalizeDB(db);
+    // Never overwrite existing collections with empty legacy/current collections.
+    for(const k of Object.keys(current)){
+      if(current[k] && Array.isArray(current[k]) && current[k].length===0 && merged[k].length) current[k]=merged[k];
+    }
+    // If a collection exists in both, preserve current and append unique records.
+    for(const k of ["members","accounts","expenses","income","debts","bills","investments","investmentTransactions","vehicles","health"]){
+      const seen=new Set(current[k].map(x=>x&&x.id).filter(Boolean));
+      for(const item of merged[k]){
+        if(item&&item.id&&!seen.has(item.id)){current[k].push(item);seen.add(item.id);}
+      }
+    }
+    db=current;
+    persistDB();
+  }
+}
+
+const VERSION_OLD_KEYS=["ailefinans_v16","ailefinans_v12","ailefinans_v11","ailefinans_v10","ailefinans_v9","ailefinans_v8","ailefinans_v7","ailefinans_v6","ailefinans_v5","ailefinans_v4","ailefinans_v3","ailefinans_v2"];
 const OLD_KEYS=["ailefinans_v3","ailefinans_v2"];
 const $=id=>document.getElementById(id);
 let editAccountId=null;
@@ -10,10 +59,8 @@ function today(){return new Date().toISOString().slice(0,10)}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.remove("show"),1800)}
 function openModal(id){const m=$(id);if(!m)return;m.hidden=false;m.setAttribute("aria-hidden","false");m.style.display="";m.classList.add("open")}
 function closeModal(id){const m=$(id);if(!m)return;m.classList.remove("open","show","active");m.setAttribute("aria-hidden","true");m.hidden=true;m.style.display="none"}
-function save(){localStorage.setItem(KEY,JSON.stringify(db));render()}
-function normalizeAccount(a){
-  return {id:a.id||uid(),name:String(a.name||"").trim(),type:a.type||"Diğer",balance:Number(a.balance)||0,currency:a.currency||"TRY"}
-}
+function save(){ persistDB(); migrateLegacyData();
+render(); }
 function load(){
   let raw=localStorage.getItem(KEY);
   if(!raw){
@@ -617,3 +664,55 @@ $("accountForm")?.addEventListener("submit",function(e){
 load();
 render();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+
+
+/* v17: independent bottom-tab router. Does not depend on render(). */
+(function(){
+  const aliases={
+    "ana sayfa":["home","homeSection","dashboard"],
+    "anasayfa":["home","homeSection","dashboard"],
+    "harcamalar":["expenses","expensesSection","expensesCard"],
+    "gelir":["income","incomeSection","incomeCard"],
+    "gelirler":["income","incomeSection","incomeCard"],
+    "yatırımlar":["investments","investmentsCard"],
+    "raporlar":["reports","reportsSection","reportsCard"],
+    "daha fazla":["more","moreSection","moreMenu"]
+  };
+  function getTarget(btn){
+    const direct=btn.dataset.tab||btn.dataset.target||btn.dataset.nav||btn.dataset.section||btn.getAttribute("href");
+    if(direct&&direct!=="#") return direct.replace(/^#/,"");
+    const t=btn.textContent.trim().toLowerCase();
+    const list=aliases[t]||[];
+    for(const id of list) if(document.getElementById(id)) return id;
+    return list[0]||null;
+  }
+  function showTarget(id){
+    let target=document.getElementById(id);
+    if(!target){
+      target=document.querySelector("#"+CSS.escape(id));
+    }
+    if(!target){
+      // Fallback by heading text.
+      const clean=id.replace(/Section|Card|Menu/g,"").toLowerCase();
+      const heads=[...document.querySelectorAll("h1,h2,h3")];
+      const h=heads.find(x=>x.textContent.trim().toLowerCase().includes(clean));
+      target=h?.closest(".card,section,main,[role='tabpanel']")||h;
+    }
+    if(!target) return false;
+    document.querySelectorAll(".app-tab,.tab-section,.tab-content,[role='tabpanel']").forEach(el=>{
+      if(el===target || el.contains(target)) el.classList.add("active");
+    });
+    document.querySelectorAll(".bottom-nav button,.bottom-nav a").forEach(b=>b.classList.remove("active"));
+    target.scrollIntoView({behavior:"smooth",block:"start"});
+    return true;
+  }
+  document.addEventListener("click",function(e){
+    const btn=e.target.closest(".bottom-nav button,.bottom-nav a");
+    if(!btn)return;
+    const id=getTarget(btn);
+    if(!id)return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    showTarget(id);
+  },true);
+})();
